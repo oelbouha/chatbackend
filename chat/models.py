@@ -13,6 +13,7 @@ class ChatGroup(models.Model):
 
 class Message(models.Model):
     group = models.ForeignKey(ChatGroup, on_delete=models.DO_NOTHING)
-    sender = models.ForeignKey(User)
-    content = models.TextField(max_length=1024, default="message")
+    sender = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="sender")
+    recipient = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="recipient")
+    content = models.TextField(max_length=1024)
     time = models.DateTimeField(auto_now=True)

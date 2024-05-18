@@ -1,8 +1,9 @@
 from django.urls import path
-from .views import Home, Login, Logout
+from .views import Home, Login, Logout, ChatRoom
 
 urlpatterns = [
     path('', Home.as_view(), name='home'),
     path('login/', Login.as_view(), name='login'),
     path('logout/', Logout.as_view(), name='logout'),
+    path('room/', ChatRoom.as_view())
 ]

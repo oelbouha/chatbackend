@@ -56,8 +56,8 @@
     <h1>Chat Rooms</h1>
     {% for group in groups %}
         <div class="room">
-            <span class="room-name">{{group}}</span>
-            <button class="enter-button">Enter</button><a href="/group/{{group.id}}/"></a>
+            <span class="room-name">{{group.name}}</span>
+            <a href="/room/?room={{group.id}}&name={{group.name}}"><button class="enter-button">Enter</button></a>
         </div>
     {% endfor %}
     <form action="/logout/" method="post">

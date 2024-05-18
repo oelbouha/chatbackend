@@ -3,6 +3,9 @@ from django.views import View
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Q
+
+
 from chat.models import ChatGroup, Message
 from chat.forms import LoginForm
 
@@ -10,9 +13,13 @@ from chat.forms import LoginForm
 class Home(LoginRequiredMixin, View):
     def get(self, request: HttpRequest):
         user = request.user
-        user_groups = [(group.user_one.username if group.user_one == user else group.user_two.username) 
-                       for group in ChatGroup.objects.filter(user_one=user, user_two=user)]
+        user_groups = [{
+            'id': group.id,
+            'name': group.user_one.username if group.user_one != user else group.user_two.username
+        } for group in ChatGroup.objects.filter(Q(user_one=user) | Q(user_two=user))]
 
+
+        print(user_groups)
         return render(request, 'home.html', {
             'groups': user_groups
         })
@@ -47,7 +54,13 @@ class Login(View):
 
 class ChatRoom(LoginRequiredMixin, View):
     def get(self, request: HttpRequest, *args, **kwargs):
-        id = kwargs['id']
+        if not all(key in request.GET for key in ['room', 'name']):
+            return redirect('/home/')
+        
+        try:
+            id = int(request.GET['room'])
+        except ValueError:
+            return redirect('/home/')
 
         try:
             group = ChatGroup.objects.get(id=id)
