@@ -32,12 +32,18 @@ class ChatConsumer(JsonWebsocketConsumer):
             event = {
                 "type": "chat.message",
                 "message": content['message'],
+                "sender": self.scope['user'].username
             }
             async_to_sync(self.channel_layer.group_send)(self.group_name, event)
 
 
     def chat_message(self, event):
-        self.send(text_data=f"{event['message']}")
+        data = json.dumps({
+            'message': event['message'],
+            'sender': event['sender']
+        })
+        print(data)
+        self.send(text_data=data)
 
 
 
@@ -68,4 +74,6 @@ class ChatConsumer(JsonWebsocketConsumer):
 
 # parse query string
 # get group by id
-# verify group info with username and query_string['name']
+
+
+

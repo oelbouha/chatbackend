@@ -17,3 +17,7 @@ class Message(models.Model):
     recipient = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="recipient")
     content = models.TextField(max_length=1024)
     time = models.DateTimeField(auto_now=True)
+
+
+    def __str__(self) -> str:
+        return f"{self.time.date()} at {self.time.time().hour}:{self.time.time().hour}"

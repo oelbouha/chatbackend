@@ -60,7 +60,7 @@
     <body>
 
         <div class="container">
-            <ul class="message-list">
+            <ul class="message-list" id="message-list">
                 {% for message in messages %}
                     {% if message.sender.id == user.id%}
                         <li class="message sender">{{message.content}}</li>
@@ -75,9 +75,12 @@
         <script>
             const urlParams = new URLSearchParams(window.location.search);
             const recipient = urlParams.get('name')
+            const msgList = document.getElementById("message-list")
+            const messageInput = document.getElementById('message-input')
+            const sendButton = document.getElementById('send-button')
+
+
             let socket = new WebSocket(`ws://localhost:8000/ws/chat/room/`)
-            let messageInput = document.getElementById('message-input')
-            let sendButton = document.getElementById('send-button')
             socket.onopen = () => {
                 console.log("socket accepted", JSON.stringify({recipient: recipient}))
                 socket.send(
@@ -86,7 +89,12 @@
             }
             
             socket.onmessage = (e) => {
-                console.log(e.data)
+                const data = JSON.parse(e.data)
+                console.log(recipient)
+                if (data.sender == recipient)
+                    msgList.innerHTML += `<li class="message">${data.message}</li>`
+                else
+                    msgList.innerHTML += `<li class="message sender">${data.message}</li>`
             }
 
             socket.onclose = (e) => {
@@ -98,6 +106,7 @@
                     message: messageInput.value
                 }
                 socket.send(JSON.stringify(data))
+                messageInput.value = ""
                 
             }
         </script>

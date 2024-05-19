@@ -3,6 +3,7 @@ from django.views import View
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.models import User
 from django.db.models import Q
 
 
@@ -12,16 +13,10 @@ from chat.forms import LoginForm
 # Create your views here.
 class Home(LoginRequiredMixin, View):
     def get(self, request: HttpRequest):
-        user = request.user
-        user_groups = [{
-            'id': group.id,
-            'name': group.user_one.username if group.user_one != user else group.user_two.username
-        } for group in ChatGroup.objects.filter(Q(user_one=user) | Q(user_two=user))]
+        users = [user.username for user in User.objects.all() if user != request.user]
 
-
-        print(user_groups)
         return render(request, 'home.html', {
-            'groups': user_groups
+            'users': users
         })
 
 
@@ -54,20 +49,19 @@ class Login(View):
 
 class ChatRoom(LoginRequiredMixin, View):
     def get(self, request: HttpRequest, *args, **kwargs):
-        if not all(key in request.GET for key in ['room', 'name']):
-            return redirect('/home/')
+        if not 'name' in request.GET:
+            return redirect('/')
         
         try:
-            id = int(request.GET['room'])
-        except ValueError:
-            return redirect('/home/')
+            user = User.objects.get(username=request.GET['name'])
+        except User.DoesNotExist:
+            return redirect('/')
 
-        try:
-            group = ChatGroup.objects.get(id=id)
-        except ChatGroup.DoesNotExist:
-            return redirect('/home/')
-        
-        messages = Message.objects.filter(group=group)
+        messages = Message.objects.filter(
+            Q(sender=request.user, recipient=user)
+            | Q(sender=user, recipient=request.user)
+        ).order_by("time")
+
         return render(request, 'chat.html', {
             'messages': messages
         })

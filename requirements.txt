@@ -1,2 +1,4 @@
 django
 channels[daphne]
+ipython
+django-extensions
