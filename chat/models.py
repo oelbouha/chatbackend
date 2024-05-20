@@ -21,3 +21,11 @@ class Message(models.Model):
 
     def __str__(self) -> str:
         return f"{self.time.date()} at {self.time.time().hour}:{self.time.time().hour}"
+    
+
+class UserChannel(models.Model):
+    channel_name = models.CharField(max_length=64, null=False)
+    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+
+    def __str__(self) -> str:
+        return f"{self.user.username} -> {self.channel_name}"

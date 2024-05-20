@@ -1,9 +1,12 @@
-from channels.generic.websocket import JsonWebsocketConsumer
-from chat.models import ChatGroup, Message
+import json
+
 from django.db.models import Q
 from django.contrib.auth.models import User
+
+from channels.generic.websocket import JsonWebsocketConsumer
 from asgiref.sync import async_to_sync
-import json
+
+from chat.models import ChatGroup, Message, UserChannel
 
 
 class ChatConsumer(JsonWebsocketConsumer):
@@ -11,6 +14,7 @@ class ChatConsumer(JsonWebsocketConsumer):
     group: ChatGroup
     recipient : User
     def connect(self):
+        
         self.accept()
 
     def disconnect(self, close_code):
