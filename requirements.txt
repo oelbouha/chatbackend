@@ -2,3 +2,9 @@ django
 channels[daphne]
 ipython
 django-extensions
+
+
+Pillow
+pymediainfo
+mutagen
+PyPDF2

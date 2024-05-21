@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -72,43 +73,6 @@
             <input type="text" class="message-input" id="message-input" placeholder="Type your message...">
             <button class="send-button" id="send-button">Send</button>
         </div>
-        <script>
-            const urlParams = new URLSearchParams(window.location.search);
-            const recipient = urlParams.get('name')
-            const msgList = document.getElementById("message-list")
-            const messageInput = document.getElementById('message-input')
-            const sendButton = document.getElementById('send-button')
-
-
-            let socket = new WebSocket(`ws://localhost:8000/ws/chat/room/`)
-            socket.onopen = () => {
-                console.log("socket accepted", JSON.stringify({recipient: recipient}))
-                socket.send(
-                    JSON.stringify({recipient: recipient})
-                )
-            }
-            
-            socket.onmessage = (e) => {
-                const data = JSON.parse(e.data)
-                console.log(recipient)
-                if (data.sender == recipient)
-                    msgList.innerHTML += `<li class="message">${data.message}</li>`
-                else
-                    msgList.innerHTML += `<li class="message sender">${data.message}</li>`
-            }
-
-            socket.onclose = (e) => {
-                console.log(e)
-            }
-            
-            sendButton.onclick = () => {
-                var data = {
-                    message: messageInput.value
-                }
-                socket.send(JSON.stringify(data))
-                messageInput.value = ""
-                
-            }
-        </script>
+        <script src="{% static 'chat.js'%}"></script>
     </body>
 </html>

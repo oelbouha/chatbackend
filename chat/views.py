@@ -13,7 +13,10 @@ from chat.forms import LoginForm
 # Create your views here.
 class Home(LoginRequiredMixin, View):
     def get(self, request: HttpRequest):
-        users = [user.username for user in User.objects.all() if user != request.user]
+        users = [{
+            'id': user.id,
+            'username': user.username,
+        } for user in User.objects.all() if user != request.user]
 
         return render(request, 'home.html', {
             'users': users
@@ -49,11 +52,16 @@ class Login(View):
 
 class ChatRoom(LoginRequiredMixin, View):
     def get(self, request: HttpRequest, *args, **kwargs):
-        if not 'name' in request.GET:
+        if not 'id' in request.GET:
             return redirect('/')
         
         try:
-            user = User.objects.get(username=request.GET['name'])
+            id = int(request.GET['id'])
+        except ValueError:
+            return redirect('/')
+
+        try:
+            user = User.objects.get(id=id)
         except User.DoesNotExist:
             return redirect('/')
 

@@ -56,8 +56,8 @@
     <h1>Chat Rooms</h1>
     {% for user in users %}
         <div class="room">
-            <span class="room-name">{{user}}</span>
-            <a href="/room/?name={{user}}"><button class="enter-button">Enter</button></a>
+            <span class="room-name">{{user.username}}</span>
+            <a href="/room/?id={{user.id}}"><button class="enter-button">Enter</button></a>
         </div>
     {% endfor %}
     <form action="/logout/" method="post">

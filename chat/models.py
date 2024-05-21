@@ -12,10 +12,11 @@ class ChatGroup(models.Model):
 
 
 class Message(models.Model):
-    group = models.ForeignKey(ChatGroup, on_delete=models.DO_NOTHING)
     sender = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="sender")
     recipient = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="recipient")
-    content = models.TextField(max_length=1024)
+    type = models.CharField(max_length=4)
+    content = models.TextField()
+    status = models.CharField(max_length=4)
     time = models.DateTimeField(auto_now=True)
 
 
@@ -29,3 +30,4 @@ class UserChannel(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.username} -> {self.channel_name}"
+    
