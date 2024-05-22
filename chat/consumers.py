@@ -156,8 +156,8 @@ class Chat(JsonWebsocketConsumer):
         except:
             clt_chann = None
 
-        self.STATUS['msg'].status = 'recv'
-        self.STATUS['msg'].save()
+        self.STATUS['message'].status = 'recv'
+        self.STATUS['message'].save()
 
         if len(clt_channs) != 0:
             data = {
@@ -245,7 +245,8 @@ class Chat(JsonWebsocketConsumer):
                 'm': 'msg',
                 'clt': self.scope['user'].id,
                 'tp': self.MESSAGE['type'],
-                'cnt': self.MESSAGE['content']
+                'cnt': self.MESSAGE['content'],
+                'msg': message.id
             }
             for chann in clt_channs:
                 async_to_sync(self.channel_layer.send)(chann.channel_name,{
@@ -307,6 +308,7 @@ msg --> message
     clt: user_id
     tp: message_type (txt, vc)
     cnt: message_content
+    msg: msg_id // exist only if a server send a msg method to client
 }
 
 {
@@ -315,6 +317,7 @@ msg --> message
     tp: image, video, pdf
     id: attachment_id
     cap: attachment_caption
+    msg: msg_id // exist only if a server send a msg method to client
 }
 
 

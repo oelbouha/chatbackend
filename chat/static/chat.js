@@ -11,9 +11,41 @@ socket.onopen = () => {
 }
 
 
+function sent(msgList, data) {
+    msgList.innerHTML +=  `<li class="message sender" id="${data.msg}"><span>sent</span>${messageInput.value}</li>`
+    messageInput.value = ""
+}
+
+function recieved(data) {
+    msgSpan = document.getElementById(`${data.msg}`).children[0]
+    setTimeout(() => msgSpan.innerHTML = 'recv', 3000)
+}
+
+function message(msgList, data) {
+    msgList.innerHTML +=  `<li class="message" id="${data.msg}">${data.cnt}</li>`
+    const recv = {
+        m: 'recv',
+        clt: id,
+        msg: data.msg
+    }
+    socket.send(JSON.stringify(recv))
+}
+
+function seen() {
+
+}
+
+
 socket.onmessage = (e) => {
     const data = JSON.parse(e.data)
-    console.log(data)
+    const msgList = document.getElementById("message-list")
+    console.log(data.m)
+    if (data.m == 'st')
+        sent(msgList, data)
+    else if (data.m == 'msg')
+        message(msgList, data)
+    else if (data.m == 'recv')
+        recieved(data)
 }
 
 socket.onclose = (e) => {
@@ -25,8 +57,8 @@ sendButton.onclick = () => {
         m: 'msg',
         clt: id,
         tp: 'txt',
-        cnt: messageInput.value
+        cnt: messageInput.value,
+        msg: null
     }
     socket.send(JSON.stringify(data))
-    messageInput.value = ""
 }

@@ -30,7 +30,15 @@
                 border-radius: 8px;
                 padding: 10px;
                 margin-bottom: 10px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
             }
+            .message span{
+                font-size: 12px;
+                color: #ddd;
+            }
+
             .message.sender {
                 background-color: #4caf50;
                 color: #fff;
@@ -64,9 +72,9 @@
             <ul class="message-list" id="message-list">
                 {% for message in messages %}
                     {% if message.sender.id == user.id%}
-                        <li class="message sender">{{message.content}}</li>
+                        <li class="message sender" id="{{message.id}}"><span>{{message.status}}</span>{{message.content}}</li>
                     {% else %}
-                        <li class="message">{{message.content}}</li>
+                        <li class="message" id="{{message.id}}">{{message.content}}</li>
                     {% endif %}
                 {% endfor %}
             </ul>
