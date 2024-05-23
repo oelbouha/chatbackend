@@ -38,14 +38,10 @@ class Chat(JsonWebsocketConsumer):
                 'err': message
             })
         else:
-            if content['m'] == 'recv':
-                self.m_recieved()
-            elif content['m'] == 'sn':
-                self.m_seen()
-            elif content['m'] == 'typ':
-                self.m_typing()
-            elif content['m'] == 'rcd':
-                self.m_recording()
+            if content['m'] in ['recv', 'sn']:
+                self.handle_message_status_methods(content['m'])
+            elif content['m'] in ['typ', 'styp', 'rcd', 'srcd']:
+                self.handle_user_actions_methods(content['m'])
             elif content['m'] == 'msg':
                 self.m_message()
             else:
@@ -60,14 +56,14 @@ class Chat(JsonWebsocketConsumer):
         if (not 'm' in json_data) or (not 'clt' in json_data):
             return (False, 'the method/client key not found')
         
-        if not json_data['m'] in ['sn', 'recv', 'typ', 'rcd', 'atta', 'msg']:
+        if not json_data['m'] in ['sn', 'recv', 'typ', 'rcd', 'styp', 'srcd', 'atta', 'msg']:
             return (False, 'invalid method')
 
         valid, message = (True, "")
     
         if json_data['m'] in ['sn', 'recv']:
             valid, message = self.parse_status_methods(json_data)
-        elif json_data['m'] in ['typ', 'rcd']:
+        elif json_data['m'] in ['typ', 'rcd', 'styp', 'srcd']:
             valid, message = self.parse_action_methods(json_data)
         else:
             valid, message = self.parse_message_methods(json_data)
@@ -118,7 +114,7 @@ class Chat(JsonWebsocketConsumer):
             return (False, 'client with the given id not found')
     
         
-        self.STATUS['client'] = client
+        self.ACTION['client'] = client
         return (True, "")
 
 
@@ -150,18 +146,15 @@ class Chat(JsonWebsocketConsumer):
         # TODO add the attachment parsing here
 
 
-    def m_recieved(self):
-        try:
-            clt_channs = UserChannel.objects.filter(user=self.STATUS['client'])
-        except:
-            clt_chann = None
+    def handle_message_status_methods(self, method):
+        clt_channs = UserChannel.objects.filter(user=self.STATUS['client'])
 
-        self.STATUS['message'].status = 'recv'
+        self.STATUS['message'].status = 'recieved' if method == 'recv' else 'seen'
         self.STATUS['message'].save()
 
         if len(clt_channs) != 0:
             data = {
-                'm': 'recv',
+                'm': method,
                 'clt': self.scope['user'].id,
                 'msg': self.STATUS['message'].id 
             }
@@ -172,47 +165,12 @@ class Chat(JsonWebsocketConsumer):
                 })
 
 
-    def m_seen(self):
-        clt_channs = UserChannel.objects.filter(user=self.STATUS['client'])
-
-        self.STATUS['msg'].status = 'seen'
-        self.STATUS['msg'].save()
-
-        if len(clt_channs) != 0:
-            data = {
-                'm': 'sn',
-                'clt': self.scope['user'].id,
-                'msg': self.STATUS['message'].id 
-            }
-            for chann in clt_channs:
-                async_to_sync(self.channel_layer.send)(chann.channel_name,{
-                    "type": "chat.message",
-                    "data": data
-                })
-
-
-    def m_typing(self):
+    def handle_user_actions_methods(self, method):
         clt_channs = UserChannel.objects.filter(user=self.ACTION['client'])
 
         if len(clt_channs) != 0:
             data = {
-                'm': 'typ',
-                'clt': self.scope['user'].id,
-            }
-
-            for chann in clt_channs:
-                async_to_sync(self.channel_layer.send)(chann.channel_name,{
-                    "type": "chat.message",
-                    "data": data
-                })
-
-
-    def m_recording(self):
-        clt_channs = UserChannel.objects.filter(user=self.ACTION['client'])
-
-        if len(clt_channs) != 0:
-            data = {
-                'm': 'rcd',
+                'm': method,
                 'clt': self.scope['user'].id,
             }
 
@@ -259,26 +217,20 @@ class Chat(JsonWebsocketConsumer):
         pass
 
 
-# parse query string
-# get group by id
-
 
 
 '''
-methods = st, sn, recv, typ, rcd, atta, msg
+methods = st, sn, recv, typ, rcd, atta, msg, styp, srcd
 st --> sent
 sn --> seen
 recv --> recieved
 typ --> typing
+styp -> stop typing
 rcd --> recording
+srcd --> stop recording
 atta --> attachment
 msg --> message
 
-{
-    m: st
-    clt: user_id
-    msg: msg_id
-}
 
 {
     m: recv
@@ -299,7 +251,18 @@ msg --> message
 }
 
 {
+    m: styp
+    clt: user_id
+}
+
+
+{
     m: rcd
+    clt: user_id
+}
+
+{
+    m: srcd
     clt: user_id
 }
 

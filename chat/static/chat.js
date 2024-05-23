@@ -18,24 +18,39 @@ function sent(msgList, data) {
 
 function recieved(data) {
     msgSpan = document.getElementById(`${data.msg}`).children[0]
-    setTimeout(() => msgSpan.innerHTML = 'recv', 3000)
+    msgSpan.innerHTML = 'recv'
 }
 
 function message(msgList, data) {
+    messageInput.placeholder = "Type your message..."
     msgList.innerHTML +=  `<li class="message" id="${data.msg}">${data.cnt}</li>`
     const recv = {
         m: 'recv',
         clt: id,
         msg: data.msg
     }
-    socket.send(JSON.stringify(recv))
+    const seen = {
+        m: 'sn',
+        clt: id,
+        msg: data.msg
+    }
+    setTimeout(() => socket.send(JSON.stringify(recv)), 1000)
+    setTimeout(() => socket.send(JSON.stringify(seen)), 2000)
+
 }
 
-function seen() {
-
+function seen(data) {
+    msgSpan = document.getElementById(`${data.msg}`).children[0]
+    msgSpan.innerHTML = 'seen'
 }
 
+function typing() {
+    messageInput.placeholder = "typing..."
+}
 
+function stop_typing() {
+    messageInput.placeholder = "Type your message..."
+}
 socket.onmessage = (e) => {
     const data = JSON.parse(e.data)
     const msgList = document.getElementById("message-list")
@@ -46,13 +61,43 @@ socket.onmessage = (e) => {
         message(msgList, data)
     else if (data.m == 'recv')
         recieved(data)
+    else if (data.m == 'sn')
+        seen(data)
+    else if (data.m == 'typ')
+        typing()
+    else if (data.m == 'styp')
+        stop_typing()
 }
 
 socket.onclose = (e) => {
     console.log(e)
 }
 
+var is_typing = false
+messageInput.oninput = () => {
+    if (messageInput.value.length == 0)
+    {
+        console.log("stop typing")
+        typ = {
+            m: 'styp',
+            clt: id
+        }
+        socket.send(JSON.stringify(typ))
+        is_typing = !is_typing
+    }
+    else if (!is_typing)
+    {
+        typ = {
+            m: 'typ',
+            clt: id
+        }
+        socket.send(JSON.stringify(typ))
+        is_typing = !is_typing
+    }
+}
+
 sendButton.onclick = () => {
+    is_typing = !is_typing
     var data = {
         m: 'msg',
         clt: id,
@@ -62,3 +107,4 @@ sendButton.onclick = () => {
     }
     socket.send(JSON.stringify(data))
 }
+
