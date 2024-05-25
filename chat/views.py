@@ -1,4 +1,4 @@
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
@@ -7,7 +7,7 @@ from django.contrib.auth.models import User
 from django.db.models import Q
 
 
-from chat.models import ChatGroup, Message
+from chat.models import Message, File
 from chat.forms import LoginForm
 
 # Create your views here.
@@ -73,6 +73,23 @@ class ChatRoom(LoginRequiredMixin, View):
         return render(request, 'chat.html', {
             'messages': messages
         })
+
+
+class UploadAttachment(LoginRequiredMixin, View):
+
+    def get(self, request: HttpRequest):
+        return render(request, 'upload.html')
+    
+
+    def post(self, request: HttpRequest):
+        if not 'file' in request.FILES:
+            print("file error")
+            return redirect('/')
+        
+        file = File.objects.create(file=request.FILES['file'])
+        return JsonResponse({'id': file.id})
+
+
 
 class Logout(LoginRequiredMixin, View):
     def post(self, request: HttpRequest):
