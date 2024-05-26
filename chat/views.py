@@ -5,9 +5,10 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.db.models import Q
+from PIL import Image
 
 
-from chat.models import Message, File
+from chat.models import Message, UploadedFile
 from chat.forms import LoginForm
 
 # Create your views here.
@@ -75,19 +76,32 @@ class ChatRoom(LoginRequiredMixin, View):
         })
 
 
-class UploadAttachment(LoginRequiredMixin, View):
-
-    def get(self, request: HttpRequest):
-        return render(request, 'upload.html')
-    
+class UploadAttachment(LoginRequiredMixin, View): 
 
     def post(self, request: HttpRequest):
-        if not 'file' in request.FILES:
-            print("file error")
+        # TODO check type key in requet.POST
+        if (not 'file' in request.FILES):
+            print("file/type required")
             return redirect('/')
         
-        file = File.objects.create(file=request.FILES['file'])
-        return JsonResponse({'id': file.id})
+
+        file = UploadedFile.objects.create(file=request.FILES['file'])
+        res = {'f': file.id}
+        # if request.POST['type'] == 'img':
+        #     preview_file = self.img_to_preview_mode()
+        #     res['prv'] = file.id
+        # elif request.POST['type'] == 'vd':
+        #     preview_file = self.video_to_preview_mode()
+        #     res['prv'] = file.id
+
+        
+        return JsonResponse(res)
+    
+    def img_to_preview_mode(self, img_name):
+        pass
+
+    def video_to_preview_mode(self, vd_name):
+        pass
 
 
 

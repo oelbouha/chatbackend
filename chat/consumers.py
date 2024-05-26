@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from channels.generic.websocket import JsonWebsocketConsumer
 from asgiref.sync import async_to_sync
 
-from chat.models import Message, UserChannel, File, Attachment
+from chat.models import Message, UserChannel
 
 
 
@@ -16,7 +16,6 @@ class Chat(JsonWebsocketConsumer):
     STATUS = {}
     ACTION = {}
     MESSAGE = {}
-    ATTACHMENT = {}
 
     def connect(self):
         chann = UserChannel.objects.create(
@@ -43,10 +42,8 @@ class Chat(JsonWebsocketConsumer):
                 self.handle_message_status_methods(content['m'])
             elif content['m'] in ['typ', 'styp', 'rcd', 'srcd']:
                 self.handle_user_actions_methods(content['m'])
-            elif content['m'] == 'msg':
-                self.m_message()
             else:
-                self.m_attachment()
+                self.handle_messages_method()
 
 
     def chat_message(self, event):
@@ -68,7 +65,7 @@ class Chat(JsonWebsocketConsumer):
         except User.DoesNotExist:
             return (False, 'client with the given id not found')
 
-        if not json_data['m'] in ['sn', 'recv', 'typ', 'rcd', 'styp', 'srcd', 'atta', 'msg']:
+        if not json_data['m'] in ['sn', 'recv', 'typ', 'rcd', 'styp', 'srcd', 'msg']:
             return (False, 'invalid method')
 
         valid, message = (True, "")
@@ -78,10 +75,8 @@ class Chat(JsonWebsocketConsumer):
         elif json_data['m'] in ['typ', 'rcd', 'styp', 'srcd']:
             self.ACTION['client'] = client
             return (True, "")
-        elif json_data['m'] == 'msg':
-            valid, message = self.parse_message_method(json_data, client)
         else:
-            valid, message = self.parse_attachment_method(json_data, client)
+            valid, message = self.parse_message_method(json_data, client)
         return (valid, message)
 
  
@@ -114,35 +109,13 @@ class Chat(JsonWebsocketConsumer):
         type = json_data['tp']
 
         
-        if not type in ['txt', 'vc']:
+        if not type in ['atta', 'msg', 'vc', 'vd', 'img']:
             return (False, "invalid message type")
         
         self.MESSAGE['client'] = client
         self.MESSAGE['type'] = type
         self.MESSAGE['content'] = json_data['cnt']
 
-        return (True, "")
-
-
-    def parse_attachment_method(self, json_data, client):
-        if (not 'f' in json_data) or (not 'cap' in json_data):
-            return (False, "file/caption key not found")
-        
-        f = json_data['f']
-
-        try:
-            file_id = int(f)
-        except ValueError:
-            return (False, 'file must be a number')
-        
-        try:
-            file = File.objects.get(id=file_id)
-        except File.DoesNotExist:
-            return (False, "file with the given id not found")
-        
-        self.ATTACHMENT['client'] = client
-        self.ATTACHMENT['file'] = file
-        self.ATTACHMENT['caption'] = json_data['cap']
         return (True, "")
 
 
@@ -181,7 +154,7 @@ class Chat(JsonWebsocketConsumer):
                 })
 
 
-    def m_message(self):
+    def handle_messages_method(self):
         clt_channs = UserChannel.objects.filter(user=self.MESSAGE['client'])
 
         message = Message.objects.create(
@@ -189,14 +162,13 @@ class Chat(JsonWebsocketConsumer):
             recipient=self.MESSAGE['client'],
             type=self.MESSAGE['type'],
             content=self.MESSAGE['content'],
-            status="sent"
         )
 
         self.send_json({
             'm': 'st',
             'tp': 'msg',
             'clt': self.MESSAGE['client'].id,
-            'id': message.id
+            'msg': message.id
         })
 
         if len(clt_channs) != 0:
@@ -206,39 +178,6 @@ class Chat(JsonWebsocketConsumer):
                 'tp': self.MESSAGE['type'],
                 'cnt': self.MESSAGE['content'],
                 'msg': message.id
-            }
-            for chann in clt_channs:
-                async_to_sync(self.channel_layer.send)(chann.channel_name,{
-                    "type": "chat.message",
-                    "data": data
-                })
-
-
-    def m_attachment(self):
-        clt_channs = UserChannel.objects.filter(user=self.ATTACHMENT['client'])
-
-        attachment = Attachment.objects.create(
-            file=self.ATTACHMENT['file'],
-            sender=self.scope['user'],
-            recipient=self.ATTACHMENT['client'],
-            caption = self.ATTACHMENT['caption'],
-            status="sent"
-        )
-
-        self.send_json({
-            'm': 'st',
-            'tp': 'atta',
-            'clt': self.ATTACHMENT['client'].id,
-            'id': attachment.id
-        })
-
-        if len(clt_channs) != 0:
-            data = {
-                'm': 'atta',
-                'clt': self.scope['user'].id,
-                'f': self.ATTACHMENT['file'].id,
-                'cap': self.ATTACHMENT['caption'],
-                'atta': attachment.id
             }
             for chann in clt_channs:
                 async_to_sync(self.channel_layer.send)(chann.channel_name,{
@@ -305,17 +244,9 @@ msg --> message
 {
     m: msg
     clt: user_id
-    tp: message_type (txt, vc)
+    tp: message_type (txt, vc, att, image, video)
     cnt: message_content
     msg: msg_id // exist only if a server send a msg method to client
-}
-
-{
-    m: atta
-    clt: user_id
-    f: file_id
-    cap: attachment_caption
-    atta: atta_id // exist only if a server send a msg method to client
 }
 
 
@@ -346,3 +277,4 @@ MESSAGE
          
 '''
 
+# TODO change message status with choices
