@@ -109,7 +109,7 @@ class Chat(JsonWebsocketConsumer):
         type = json_data['tp']
 
         
-        if not type in ['atta', 'msg', 'vc', 'vd', 'img']:
+        if not type in ['atta', 'txt', 'vc', 'vd', 'img']:
             return (False, "invalid message type")
         
         self.MESSAGE['client'] = client
@@ -166,7 +166,7 @@ class Chat(JsonWebsocketConsumer):
 
         self.send_json({
             'm': 'st',
-            'tp': 'msg',
+            'tp': self.MESSAGE['type'], # TODO specify the type here
             'clt': self.MESSAGE['client'].id,
             'msg': message.id
         })
@@ -176,7 +176,6 @@ class Chat(JsonWebsocketConsumer):
                 'm': 'msg',
                 'clt': self.scope['user'].id,
                 'tp': self.MESSAGE['type'],
-                'cnt': self.MESSAGE['content'],
                 'msg': message.id
             }
             for chann in clt_channs:

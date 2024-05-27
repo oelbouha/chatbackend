@@ -1,17 +1,20 @@
-from django.http import HttpRequest, HttpResponse, JsonResponse
+import json
+import time
+
+from django.http import HttpRequest, HttpResponse, JsonResponse, HttpResponseNotFound
 from django.views import View
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.db.models import Q
-from PIL import Image
+from django.core.files.storage import default_storage
 
 
-from chat.models import Message, UploadedFile
+from chat.models import Message
 from chat.forms import LoginForm
 
-# Create your views here.
+
 class Home(LoginRequiredMixin, View):
     def get(self, request: HttpRequest):
         users = [{
@@ -76,33 +79,44 @@ class ChatRoom(LoginRequiredMixin, View):
         })
 
 
-class UploadAttachment(LoginRequiredMixin, View): 
+class UploadFile(LoginRequiredMixin, View): 
 
     def post(self, request: HttpRequest):
         # TODO check type key in requet.POST
         if (not 'file' in request.FILES):
-            print("file/type required")
-            return redirect('/')
-        
+            HttpResponse("file/type required", status=400)
 
-        file = UploadedFile.objects.create(file=request.FILES['file'])
-        res = {'f': file.id}
-        # if request.POST['type'] == 'img':
-        #     preview_file = self.img_to_preview_mode()
-        #     res['prv'] = file.id
-        # elif request.POST['type'] == 'vd':
-        #     preview_file = self.video_to_preview_mode()
-        #     res['prv'] = file.id
 
+        f = request.FILES['file']
+        path = time.strftime("%Y/%m/%d/") + f.name
+        f_name = default_storage.save(path, f)
+
+        # TODO the preview logic goes here
         
-        return JsonResponse(res)
-    
+        return JsonResponse({'f': f_name})
+
+
     def img_to_preview_mode(self, img_name):
         pass
 
     def video_to_preview_mode(self, vd_name):
         pass
 
+
+
+class File(LoginRequiredMixin, View):
+    def get(self, request: HttpRequest, **kwargs):
+        id = kwargs['id']
+        try:
+            id = Message.objects.get(id=id)
+        except Message.DoesNotExist:
+            JsonResponse()
+
+
+
+class PreviewFile(LoginRequiredMixin, View):
+    def get(self, request: HttpRequest, **kwargs):
+        pass
 
 
 class Logout(LoginRequiredMixin, View):

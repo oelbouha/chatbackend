@@ -15,6 +15,7 @@ class TypeChoices(models.TextChoices):
     VOICE = "VC", _("Voice")
     ATTACHMENT = "ATT", _("Attachment")
 
+
 class Message(models.Model):
 
     sender = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="sender")
@@ -28,10 +29,6 @@ class Message(models.Model):
     def __str__(self) -> str:
         return f"msg {self.time.date()} at {self.time.time().hour}:{self.time.time().hour}"
 
-
-
-class UploadedFile(models.Model):
-    file = models.FileField(upload_to="%Y/%m/%d/")
 
 
 
