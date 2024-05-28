@@ -1,5 +1,6 @@
 import json
 import time
+import io
 
 from django.http import HttpRequest, HttpResponse, JsonResponse, HttpResponseNotFound
 from django.views import View
@@ -8,9 +9,13 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.db.models import Q
+from django.conf import settings
 from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.core.files.base import ContentFile, File
 
 
+from PIL import Image, UnidentifiedImageError 
 from chat.models import Message
 from chat.forms import LoginForm
 
@@ -82,35 +87,60 @@ class ChatRoom(LoginRequiredMixin, View):
 class UploadFile(LoginRequiredMixin, View): 
 
     def post(self, request: HttpRequest):
-        # TODO check type key in requet.POST
-        if (not 'file' in request.FILES):
+        if (not 'file' in request.FILES) or (not 'type' in request.POST):
             HttpResponse("file/type required", status=400)
 
 
-        f = request.FILES['file']
-        path = time.strftime("%Y/%m/%d/") + f.name
-        f_name = default_storage.save(path, f)
+        uploaded = request.FILES['file']
+        path = time.strftime("%Y/%m/%d/") + uploaded.name
+        file = default_storage.save(path, uploaded)
 
-        # TODO the preview logic goes here
-        
-        return JsonResponse({'f': f_name})
+        res = {'f': file}
+        if request.POST['type'] == 'img':
+            prv_f, message, status = self.preview_img(uploaded)
+        elif request.POST['type'] == 'vd':
+            prv_f, message, status = self.preview_video(uploaded)
+        else:
+            return JsonResponse(res)
+
+        if prv_f is None:
+            return JsonResponse({'error': message}, status=status)
+
+        res['prv_f'] = prv_f
+        return JsonResponse(res)
 
 
-    def img_to_preview_mode(self, img_name):
-        pass
-
-    def video_to_preview_mode(self, vd_name):
-        pass
-
-
-
-class File(LoginRequiredMixin, View):
-    def get(self, request: HttpRequest, **kwargs):
-        id = kwargs['id']
+    def preview_img(self, uploaded):
         try:
-            id = Message.objects.get(id=id)
-        except Message.DoesNotExist:
-            JsonResponse()
+            uploaded.open() # open the uploaded file
+            img = Image.open(uploaded) # create a pillow image instance
+            re_img = img.resize((60, 60)) # resize the image
+            re_img_cnt = io.BytesIO() # the stream that will hold the resized image content
+            re_img.save(re_img_cnt, format=img.format) # save the resize image content into BytesIO
+            file = File(re_img_cnt, 'preview_' + uploaded.name) # convert resized image to django File object
+            path = time.strftime("%Y/%m/%d/") + file.name # generate the path
+            prv_f = default_storage.save(path, file) # save the file in storage
+        except :
+            return (None, "Error While processing image", 202)
+        finally:
+            img.close()
+            re_img.close()
+
+        return prv_f, "", 200
+
+
+    def preview_video(self, vd_name):
+        pass
+
+
+
+# class File(LoginRequiredMixin, View):
+#     def get(self, request: HttpRequest, **kwargs):
+#         id = kwargs['id']
+#         try:
+#             id = Message.objects.get(id=id)
+#         except Message.DoesNotExist:
+#             JsonResponse()
 
 
 

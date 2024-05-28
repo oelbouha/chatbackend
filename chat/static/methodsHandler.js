@@ -60,7 +60,7 @@ function handle_stop_typing() {
 function send_file(type) {
     const file = fileInput.files[0]
     formData.append('file', file);
-    formData.append('type', type);
+    formData.append('type', 'img');
 
 
     fetch('http://localhost:8000/upload/', {
