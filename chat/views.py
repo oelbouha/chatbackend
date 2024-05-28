@@ -2,20 +2,19 @@ import json
 import time
 import io
 
-from django.http import HttpRequest, HttpResponse, JsonResponse, HttpResponseNotFound
+from django.http import HttpRequest, JsonResponse
 from django.views import View
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.db.models import Q
-from django.conf import settings
 from django.core.files.storage import default_storage
-from django.core.files.uploadedfile import InMemoryUploadedFile
-from django.core.files.base import ContentFile, File
+from django.core.files.base import File
 
 
-from PIL import Image, UnidentifiedImageError 
+from PIL import Image
+from moviepy.editor import VideoFileClip
 from chat.models import Message
 from chat.forms import LoginForm
 
@@ -88,7 +87,7 @@ class UploadFile(LoginRequiredMixin, View):
 
     def post(self, request: HttpRequest):
         if (not 'file' in request.FILES) or (not 'type' in request.POST):
-            HttpResponse("file/type required", status=400)
+            JsonResponse({'error': "file/type required"} , status=400)
 
 
         uploaded = request.FILES['file']
@@ -131,6 +130,13 @@ class UploadFile(LoginRequiredMixin, View):
 
     def preview_video(self, vd_name):
         pass
+        # try:
+        #     clip = VideoFileClip(video_path)
+        #     frame = clip.get_frame(1)
+        #     image = Image.fromarray(frame)
+        #     image.save(thumbnail_path)
+        # except Exception as e:
+        #     return None, "error while processing video", 202
 
 
 
