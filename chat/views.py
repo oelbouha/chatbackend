@@ -14,7 +14,6 @@ from django.core.files.base import File
 
 
 from PIL import Image
-from moviepy.editor import VideoFileClip
 from chat.models import Message
 from chat.forms import LoginForm
 
@@ -98,7 +97,8 @@ class UploadFile(LoginRequiredMixin, View):
         if request.POST['type'] == 'img':
             prv_f, message, status = self.preview_img(uploaded)
         elif request.POST['type'] == 'vd':
-            prv_f, message, status = self.preview_video(uploaded)
+            # prv_f, message, status = self.preview_video(uploaded)
+            self.preview_video(uploaded)
         else:
             return JsonResponse(res)
 
@@ -109,14 +109,14 @@ class UploadFile(LoginRequiredMixin, View):
         return JsonResponse(res)
 
 
-    def preview_img(self, uploaded):
+    def preview_img(self, uploaded_f):
         try:
-            uploaded.open() # open the uploaded file
-            img = Image.open(uploaded) # create a pillow image instance
+            uploaded_f.open() # open the uploaded file
+            img = Image.open(uploaded_f) # create a pillow image instance
             re_img = img.resize((60, 60)) # resize the image
             re_img_cnt = io.BytesIO() # the stream that will hold the resized image content
             re_img.save(re_img_cnt, format=img.format) # save the resize image content into BytesIO
-            file = File(re_img_cnt, 'preview_' + uploaded.name) # convert resized image to django File object
+            file = File(re_img_cnt, 'preview_' + uploaded_f.name) # convert resized image to django File object
             path = time.strftime("%Y/%m/%d/") + file.name # generate the path
             prv_f = default_storage.save(path, file) # save the file in storage
         except :
@@ -128,8 +128,13 @@ class UploadFile(LoginRequiredMixin, View):
         return prv_f, "", 200
 
 
-    def preview_video(self, vd_name):
+    def preview_video(self, uploaded_f):
         pass
+        # uploaded_f.open()
+        # v_stream = io.BytesIO()
+        # for chunk in uploaded_f.chunks():
+        #     v_stream.write(chunk)
+        
         # try:
         #     clip = VideoFileClip(video_path)
         #     frame = clip.get_frame(1)
