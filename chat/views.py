@@ -1,6 +1,7 @@
-import json
 import time
 import io
+import ffmpeg
+import tempfile
 
 from django.http import HttpRequest, JsonResponse
 from django.views import View
@@ -11,11 +12,14 @@ from django.contrib.auth.models import User
 from django.db.models import Q
 from django.core.files.storage import default_storage
 from django.core.files.base import File
+from django.core.files.uploadedfile import TemporaryUploadedFile, InMemoryUploadedFile
 
 
 from PIL import Image
+from moviepy.editor import VideoFileClip
 from chat.models import Message
 from chat.forms import LoginForm
+from pathlib import Path
 
 
 class Home(LoginRequiredMixin, View):
@@ -97,8 +101,7 @@ class UploadFile(LoginRequiredMixin, View):
         if request.POST['type'] == 'img':
             prv_f, message, status = self.preview_img(uploaded)
         elif request.POST['type'] == 'vd':
-            # prv_f, message, status = self.preview_video(uploaded)
-            self.preview_video(uploaded)
+            prv_f, message, status = self.preview_video(uploaded)
         else:
             return JsonResponse(res)
 
@@ -110,6 +113,7 @@ class UploadFile(LoginRequiredMixin, View):
 
 
     def preview_img(self, uploaded_f):
+        print(type(uploaded_f))
         try:
             uploaded_f.open() # open the uploaded file
             img = Image.open(uploaded_f) # create a pillow image instance
@@ -129,35 +133,31 @@ class UploadFile(LoginRequiredMixin, View):
 
 
     def preview_video(self, uploaded_f):
-        pass
-        # uploaded_f.open()
-        # v_stream = io.BytesIO()
-        # for chunk in uploaded_f.chunks():
-        #     v_stream.write(chunk)
-        
-        # try:
-        #     clip = VideoFileClip(video_path)
-        #     frame = clip.get_frame(1)
-        #     image = Image.fromarray(frame)
-        #     image.save(thumbnail_path)
-        # except Exception as e:
-        #     return None, "error while processing video", 202
+        if isinstance(uploaded_f, TemporaryUploadedFile):
+            v_path = uploaded_f.temporary_file_path()
+            return self.get_thumbnail(v_path, uploaded_f.name)
+        else:
+            pass
+        return None, "", 200
 
 
+    def get_thumbnail(self, v_path, uploaded_f_name):
+        with tempfile.NamedTemporaryFile(suffix='.png') as tmp_image:
+            try:
+                ffmpeg \
+                .input(v_path, ss='00:00:01') \
+                .output(tmp_image.name, pix_fmt='rgb24', frames='1', loglevel="quiet", vf=f"scale=60:60")\
+                .overwrite_output()\
+                .run()
+            except Exception as e:
+                return None, str(e), 202
 
-# class File(LoginRequiredMixin, View):
-#     def get(self, request: HttpRequest, **kwargs):
-#         id = kwargs['id']
-#         try:
-#             id = Message.objects.get(id=id)
-#         except Message.DoesNotExist:
-#             JsonResponse()
+            f = File(tmp_image, 'preview_' + Path(uploaded_f_name).with_suffix('.png').name)
+            path = time.strftime("%Y/%m/%d/") + f.name
+            prv_f = default_storage.save(path ,f)
+        return prv_f, "", 200
 
 
-
-class PreviewFile(LoginRequiredMixin, View):
-    def get(self, request: HttpRequest, **kwargs):
-        pass
 
 
 class Logout(LoginRequiredMixin, View):
