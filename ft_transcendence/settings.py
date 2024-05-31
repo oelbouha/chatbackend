@@ -135,3 +135,7 @@ MEDIA_ROOT = BASE_DIR /'media'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# the max size of files that need a preview
+FILE_SIZE = 50
+PREVIEWED_FILE_SIZE = 5
