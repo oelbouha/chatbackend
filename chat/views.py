@@ -20,6 +20,7 @@ from moviepy.editor import VideoFileClip
 from chat.models import Message
 from chat.forms import LoginForm
 from pathlib import Path
+from chat.tasks import image_preview, video_preview, save_file
 
 
 class Home(LoginRequiredMixin, View):
@@ -93,72 +94,73 @@ class UploadFile(LoginRequiredMixin, View):
             JsonResponse({'error': "file/type required"} , status=400)
 
         uploaded = request.FILES['file']
-        s_path = time.strftime("%Y/%m/%d/") + uploaded.name
-        
+        path = time.strftime("%Y/%m/%d/") + uploaded.name
+        f = default_storage.save(path, uploaded)
+
+
         if request.POST['type'] == 'img':
-            prv_f, message, status = self.preview_img(uploaded)
+            result = image_preview.delay(f, uploaded.name)
         elif request.POST['type'] == 'vd':
-            prv_f, message, status = self.preview_video(uploaded)
-        else:
-            file = default_storage.save(s_path, uploaded)
-            return JsonResponse({'f': file})
-
-        if prv_f is None:
-            return JsonResponse({'error': message}, status=status)
-
-        file = default_storage.save(s_path, uploaded)
-        res = {'f': file}
-        res['prv_f'] = prv_f
-        return JsonResponse(res)
+            result = video_preview.delay(f, uploaded.name)
+        
+        
+        id = 1
+        request.session['tasks'] = []
+        if len(request.session['tasks']) != 0:
+            id = request.session['tasks'][-1]['id'] + 1
 
 
-    def preview_img(self, uploaded_f):
-        print(type(uploaded_f))
-        try:
-            uploaded_f.open() # open the uploaded file
-            img = Image.open(uploaded_f) # create a pillow image instance
-            re_img = img.resize((60, 60)) # resize the image
-            re_img_cnt = io.BytesIO() # the stream that will hold the resized image content
-            re_img.save(re_img_cnt, format=img.format) # save the resize image content into BytesIO
-            file = File(re_img_cnt, 'preview_' + uploaded_f.name) # convert resized image to django File object
-            path = time.strftime("%Y/%m/%d/") + file.name # generate the path
-            prv_f = default_storage.save(path, file) # save the file in storage
-        except :
-            return (None, "Error While processing image", 202)
-        finally:
-            img.close()
-            re_img.close()
-
-        return prv_f, "", 200
+        request.session['tasks'] += [{
+            'id': id,
+            'task_id': result.id
+        }]
+     
+        return JsonResponse({'text': 'start processing file', 'id': id})
 
 
-    def preview_video(self, uploaded_f):
-        if isinstance(uploaded_f, TemporaryUploadedFile):
-            v_path = uploaded_f.temporary_file_path()
-            return self.get_thumbnail(v_path, uploaded_f.name)
-        else:
-            with tempfile.NamedTemporaryFile(suffix=Path(uploaded_f.name).suffix) as tmp_v:
-                return self.get_thumbnail(tmp_v.name, uploaded_f.name)
+    # def preview_img(self, uploaded_f):
+    #     try:
+    #         uploaded_f.open() # open the uploaded file
+    #         img = Image.open(uploaded_f) # create a pillow image instance
+    #         re_img = img.resize((60, 60)) # resize the image
+    #         re_img_cnt = io.BytesIO() # the stream that will hold the resized image content
+    #         re_img.save(re_img_cnt, format=img.format) # save the resize image content into BytesIO
+    #         file = File(re_img_cnt, 'preview_' + uploaded_f.name) # convert resized image to django File object
+    #         path = time.strftime("%Y/%m/%d/") + file.name # generate the path
+    #         prv_f = default_storage.save(path, file) # save the file in storage
+    #     except :
+    #         return (None, "Error While processing image", 202)
+    #     finally:
+    #         img.close()
+    #         re_img.close()
+
+    #     return prv_f, "", 200
 
 
-    def get_thumbnail(self, v_path, uploaded_f_name):
-        with tempfile.NamedTemporaryFile(suffix='.png') as tmp_image:
-            try:
-                ffmpeg \
-                .input(v_path, ss='00:00:01') \
-                .output(tmp_image.name, pix_fmt='rgb24', frames='1', loglevel="quiet", vf=f"scale=60:60")\
-                .overwrite_output()\
-                .run()
-            except Exception as e:
-                return None, "Error while proccessing video", 202
+    # def preview_video(self, uploaded_f):
+    #     if isinstance(uploaded_f, TemporaryUploadedFile):
+    #         v_path = uploaded_f.temporary_file_path()
+    #         return self.get_thumbnail(v_path, uploaded_f.name)
+    #     else:
+    #         with tempfile.NamedTemporaryFile(suffix=Path(uploaded_f.name).suffix) as tmp_v:
+    #             return self.get_thumbnail(tmp_v.name, uploaded_f.name)
 
-            f = File(tmp_image, 'preview_' + Path(uploaded_f_name).with_suffix('.png').name)
-            path = time.strftime("%Y/%m/%d/") + f.name
-            prv_f = default_storage.save(path ,f)
-        return prv_f, "", 200
-    
-    def get_img_prv():
 
+    # def get_thumbnail(self, v_path, uploaded_f_name):
+    #     with tempfile.NamedTemporaryFile(suffix='.png') as tmp_image:
+    #         try:
+    #             ffmpeg \
+    #             .input(v_path, ss='00:00:01') \
+    #             .output(tmp_image.name, pix_fmt='rgb24', frames='1', loglevel="quiet", vf=f"scale=60:60")\
+    #             .overwrite_output()\
+    #             .run()
+    #         except Exception as e:
+    #             return None, "Error while proccessing video", 202
+
+    #         f = File(tmp_image, 'preview_' + Path(uploaded_f_name).with_suffix('.png').name)
+    #         path = time.strftime("%Y/%m/%d/") + f.name
+    #         prv_f = default_storage.save(path ,f)
+    #     return prv_f, "", 200
 
 
 

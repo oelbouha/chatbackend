@@ -41,7 +41,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "chat",
-    'django_extensions'
+    'django_extensions',
+    'django_celery_results',
 
 ]
 
@@ -139,3 +140,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # the max size of files that need a preview
 FILE_SIZE = 50
 PREVIEWED_FILE_SIZE = 5
+
+
+# celery
+
+CELERY_BROKER_URL = 'amqp://localhost'
+
+CELERY_RESULT_BACKEND = 'django-db'
+
+CELERY_CACHE_BACKEND = 'django-cache'
