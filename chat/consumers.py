@@ -129,7 +129,7 @@ class Chat(JsonWebsocketConsumer):
             data = {
                 'm': method,
                 'clt': self.scope['user'].id,
-                'msg': self.STATUS['message'].id 
+                'msg': self.STATUS['message'].id
             }
             for chann in clt_channs:
                 async_to_sync(self.channel_layer.send)(chann.channel_name,{
@@ -176,6 +176,7 @@ class Chat(JsonWebsocketConsumer):
                 'm': 'msg',
                 'clt': self.scope['user'].id,
                 'tp': self.MESSAGE['type'],
+                'cnt': self.MESSAGE['content'],
                 'msg': message.id
             }
             for chann in clt_channs:

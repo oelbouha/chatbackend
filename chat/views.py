@@ -2,6 +2,7 @@ import time
 import io
 import ffmpeg
 import tempfile
+import json
 
 from django.http import HttpRequest, JsonResponse
 from django.views import View
@@ -61,6 +62,11 @@ class Login(View):
             'message': 'invalid username/password'
         })
 
+class Logout(LoginRequiredMixin, View):
+    def post(self, request: HttpRequest):
+        logout(request)
+        return redirect('/login/')
+    
 
 class ChatRoom(LoginRequiredMixin, View):
     def get(self, request: HttpRequest, *args, **kwargs):
@@ -90,82 +96,82 @@ class ChatRoom(LoginRequiredMixin, View):
 class UploadFile(LoginRequiredMixin, View): 
 
     def post(self, request: HttpRequest):
-        if (not 'file' in request.FILES) or (not 'type' in request.POST):
-            JsonResponse({'error': "file/type required"} , status=400)
+        if not 'file' in request.FILES:
+            JsonResponse({'error': "file required"} , status=400)
 
         uploaded = request.FILES['file']
-        path = time.strftime("%Y/%m/%d/") + uploaded.name
-        f = default_storage.save(path, uploaded)
+        path = time.strftime("%Y/%m/%d/")
+        f = default_storage.save(path + uploaded.name, uploaded)
 
 
-        if request.POST['type'] == 'img':
-            result = image_preview.delay(f, uploaded.name)
-        elif request.POST['type'] == 'vd':
-            result = video_preview.delay(f, uploaded.name)
+        res = {'f': f}
+        if 'preview' in request.FILES:
+            preview = request.FILES['preview']
+            prv_f = default_storage.save(path + preview.name, preview)
+            res['prv_f'] = prv_f
+
+
+        # TODO preview functions goes here
+        return JsonResponse(res)
+
+
+class PreviewFile(LoginRequiredMixin, View):
+
+    def get(self, request: HttpRequest, **kwargs):
+        id = kwargs['id']
+
+        try:
+            message = Message.objects.get(
+                Q(id=id),
+                Q(sender=request.user) | Q(recipient=request.user),
+            )
+        except Message.DoesNotExist:
+            return JsonResponse({
+                'error': 'you are Unauthorized to access this file'
+            }, status=401)
         
         
-        id = 1
-        request.session['tasks'] = []
-        if len(request.session['tasks']) != 0:
-            id = request.session['tasks'][-1]['id'] + 1
+        try:
+            content_dict = json.loads(message.content)
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'error': 'message content is not json'
+            }, status=400)
+
+        if not 'prv_f' in content_dict:
+            return JsonResponse({
+                "error": "the message doesn't have a preview file"
+            }, status=400)
+        
+        file_url = default_storage.url(content_dict['prv_f'])
+        return JsonResponse({
+            'file': file_url
+        })
 
 
-        request.session['tasks'] += [{
-            'id': id,
-            'task_id': result.id
-        }]
-     
-        return JsonResponse({'text': 'start processing file', 'id': id})
+class FullFile(LoginRequiredMixin, View):
 
+    def get(self, request: HttpRequest, **kwargs):
+        id = kwargs['id']
 
-    # def preview_img(self, uploaded_f):
-    #     try:
-    #         uploaded_f.open() # open the uploaded file
-    #         img = Image.open(uploaded_f) # create a pillow image instance
-    #         re_img = img.resize((60, 60)) # resize the image
-    #         re_img_cnt = io.BytesIO() # the stream that will hold the resized image content
-    #         re_img.save(re_img_cnt, format=img.format) # save the resize image content into BytesIO
-    #         file = File(re_img_cnt, 'preview_' + uploaded_f.name) # convert resized image to django File object
-    #         path = time.strftime("%Y/%m/%d/") + file.name # generate the path
-    #         prv_f = default_storage.save(path, file) # save the file in storage
-    #     except :
-    #         return (None, "Error While processing image", 202)
-    #     finally:
-    #         img.close()
-    #         re_img.close()
-
-    #     return prv_f, "", 200
-
-
-    # def preview_video(self, uploaded_f):
-    #     if isinstance(uploaded_f, TemporaryUploadedFile):
-    #         v_path = uploaded_f.temporary_file_path()
-    #         return self.get_thumbnail(v_path, uploaded_f.name)
-    #     else:
-    #         with tempfile.NamedTemporaryFile(suffix=Path(uploaded_f.name).suffix) as tmp_v:
-    #             return self.get_thumbnail(tmp_v.name, uploaded_f.name)
-
-
-    # def get_thumbnail(self, v_path, uploaded_f_name):
-    #     with tempfile.NamedTemporaryFile(suffix='.png') as tmp_image:
-    #         try:
-    #             ffmpeg \
-    #             .input(v_path, ss='00:00:01') \
-    #             .output(tmp_image.name, pix_fmt='rgb24', frames='1', loglevel="quiet", vf=f"scale=60:60")\
-    #             .overwrite_output()\
-    #             .run()
-    #         except Exception as e:
-    #             return None, "Error while proccessing video", 202
-
-    #         f = File(tmp_image, 'preview_' + Path(uploaded_f_name).with_suffix('.png').name)
-    #         path = time.strftime("%Y/%m/%d/") + f.name
-    #         prv_f = default_storage.save(path ,f)
-    #     return prv_f, "", 200
-
-
-
-
-class Logout(LoginRequiredMixin, View):
-    def post(self, request: HttpRequest):
-        logout(request)
-        return redirect('/login/')
+        try:
+            message = Message.objects.get(
+                Q(id=id),
+                Q(sender=request.user) | Q(recipient=request.user),
+            )
+        except Message.DoesNotExist:
+            return JsonResponse({
+                'error': 'you are Unauthorized to access this file'
+            }, status=401)
+        
+        try:
+            content_dict = json.loads(message.content)
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'error': 'message content is not json'
+            }, status=400)
+        
+        file_url = default_storage.url(content_dict['f'])
+        return JsonResponse({
+            'file': file_url
+        })
