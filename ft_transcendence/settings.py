@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure---(8#lcy7b)t&58h6rnl-x1ie5fs#m!4)d_cv47qqrkg!4_pvy
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['10.12.1.4', 'localhost']
+ALLOWED_HOSTS = []
 
 
 LOGIN_URL = '/login/'
@@ -42,7 +42,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "chat",
     'django_extensions',
-    'django_celery_results',
 
 ]
 
@@ -140,12 +139,3 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # the max size of files that need a preview
 FILE_SIZE = 50
 PREVIEWED_FILE_SIZE = 5
-
-
-# celery
-
-CELERY_BROKER_URL = 'amqp://localhost'
-
-CELERY_RESULT_BACKEND = 'django-db'
-
-CELERY_CACHE_BACKEND = 'django-cache'

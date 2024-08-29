@@ -1,7 +1,4 @@
 import time
-import io
-import ffmpeg
-import tempfile
 import json
 
 from django.http import HttpRequest, JsonResponse
@@ -12,16 +9,11 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.core.files.storage import default_storage
-from django.core.files.base import File
-from django.core.files.uploadedfile import TemporaryUploadedFile, InMemoryUploadedFile
 
 
-from PIL import Image
-from moviepy.editor import VideoFileClip
 from chat.models import Message
 from chat.forms import LoginForm
 from pathlib import Path
-from chat.tasks import image_preview, video_preview, save_file
 
 
 class Home(LoginRequiredMixin, View):
