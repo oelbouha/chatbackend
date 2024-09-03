@@ -2,7 +2,9 @@ import json
 
 from django.db.models import Q
 from django.contrib.auth.models import User
+from django.contrib.auth.models import AnonymousUser
 
+from channels.auth import UserLazyObject
 from channels.generic.websocket import JsonWebsocketConsumer
 from asgiref.sync import async_to_sync
 
@@ -18,15 +20,19 @@ class Chat(JsonWebsocketConsumer):
     MESSAGE = {}
 
     def connect(self):
-        chann = UserChannel.objects.create(
-            channel_name=self.channel_name,
-            user=self.scope['user']
-        )
-        self.accept()
+        if self.scope['user'].is_authenticated:
+            chann = UserChannel.objects.create(
+                channel_name=self.channel_name,
+                user=self.scope['user']
+            )
+            self.accept()
+        else:
+            self.close()
 
 
     def disconnect(self, code):
-        UserChannel.objects.filter(user=self.scope['user']).delete()
+        if self.scope['user'].is_authenticated:
+            UserChannel.objects.filter(user=self.scope['user']).delete()
         return super().disconnect(code)
 
 
@@ -63,21 +69,22 @@ class Chat(JsonWebsocketConsumer):
         try:
             client = User.objects.get(id=clt_id)
         except User.DoesNotExist:
-            return (False, 'client with the given id not found')
+            return (False, 'client not found')
 
         if not json_data['m'] in ['sn', 'recv', 'typ', 'rcd', 'styp', 'srcd', 'msg']:
             return (False, 'invalid method')
 
-        valid, message = (True, "")
+        cleaned_data, message = (True, "")
     
         if json_data['m'] in ['sn', 'recv']:
-            valid, message = self.parse_status_methods(json_data, client)
+            cleaned_data, message = self.parse_status_methods(json_data, client)
         elif json_data['m'] in ['typ', 'rcd', 'styp', 'srcd']:
             self.ACTION['client'] = client
             return (True, "")
         else:
-            valid, message = self.parse_message_method(json_data, client)
-        return (valid, message)
+            cleaned_data, message = self.parse_message_method(json_data, client)
+
+        return (cleaned_data, message)
 
  
     def parse_status_methods(self, json_data, client):
@@ -112,6 +119,18 @@ class Chat(JsonWebsocketConsumer):
         if not type in ['atta', 'txt', 'vc', 'vd', 'img']:
             return (False, "invalid message type")
         
+        
+        try:
+            js = json.load(json_data['cnt'])
+            if type == 'txt':
+                return False, "text message must be plain text"
+            elif not 'f' in js:
+                return False, "missing file in attachment message"
+        except json.JSONDecodeError:
+            if type != 'txt':
+                return False, "attachment message must be json"
+
+        
         self.MESSAGE['client'] = client
         self.MESSAGE['type'] = type
         self.MESSAGE['content'] = json_data['cnt']
@@ -125,7 +144,7 @@ class Chat(JsonWebsocketConsumer):
         self.STATUS['message'].status = 'recieved' if method == 'recv' else 'seen'
         self.STATUS['message'].save()
 
-        if len(clt_channs) != 0:
+        if clt_channs.exists():
             data = {
                 'm': method,
                 'clt': self.scope['user'].id,
@@ -141,7 +160,7 @@ class Chat(JsonWebsocketConsumer):
     def handle_user_actions_methods(self, method):
         clt_channs = UserChannel.objects.filter(user=self.ACTION['client'])
 
-        if len(clt_channs) != 0:
+        if clt_channs.exists():
             data = {
                 'm': method,
                 'clt': self.scope['user'].id,
@@ -166,12 +185,11 @@ class Chat(JsonWebsocketConsumer):
 
         self.send_json({
             'm': 'st',
-            'tp': self.MESSAGE['type'], # TODO specify the type here
             'clt': self.MESSAGE['client'].id,
             'msg': message.id
         })
 
-        if len(clt_channs) != 0:
+        if clt_channs.exists():
             data = {
                 'm': 'msg',
                 'clt': self.scope['user'].id,
