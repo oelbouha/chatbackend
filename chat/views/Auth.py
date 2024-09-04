@@ -50,6 +50,31 @@ class Login(View):
         })
 
 
+class ChatRoom(LoginRequiredMixin, View):
+    def get(self, request: HttpRequest, *args, **kwargs):
+        if not 'id' in request.GET:
+            return redirect('/')
+        
+        try:
+            id = int(request.GET['id'])
+        except ValueError:
+            return redirect('/')
+
+        try:
+            user = User.objects.get(id=id)
+        except User.DoesNotExist:
+            return redirect('/')
+
+        messages = Message.objects.filter(
+            Q(sender=request.user, recipient=user)
+            | Q(sender=user, recipient=request.user)
+        ).order_by("time")
+
+        return render(request, 'chat.html', {
+            'messages': messages
+        })
+
+
 class Logout(LoginRequiredMixin, View):
     def post(self, request: HttpRequest):
         logout(request)

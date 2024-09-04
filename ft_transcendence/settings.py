@@ -139,3 +139,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # the max size of files that need a preview
 FILE_SIZE = 50
 PREVIEWED_FILE_SIZE = 5
+
+IMG_SIZE = 6_000_000
+IMG_PREV_SIZE = 3_000_000
+VIDEO_SIZE = 10_000_000
+VIDEO_PREV_SIZE = 5_000_000
+AUDIO_SIZE = 3_000_000
+PDF_SIZE = 10_000_000

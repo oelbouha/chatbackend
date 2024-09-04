@@ -21,6 +21,7 @@ jedi==0.19.1
 matplotlib-inline==0.1.7
 parso==0.8.4
 pexpect==4.9.0
+pillow==10.4.0
 prompt_toolkit==3.0.47
 ptyprocess==0.7.0
 pure_eval==0.2.3
@@ -29,6 +30,7 @@ pyasn1_modules==0.4.0
 pycparser==2.22
 Pygments==2.18.0
 pyOpenSSL==24.2.1
+pypdf==4.3.1
 service-identity==24.1.0
 six==1.16.0
 sqlparse==0.5.1
