@@ -16,10 +16,8 @@ from django.utils.decorators import method_decorator
 from chat.models import Message
 
 from PIL import Image
-from moviepy.editor import VideoFileClip
 from pypdf import PdfReader
 from pypdf.errors import PyPdfError
-import soundfile
 
 # TODO don't forget to test >1M files
 
@@ -33,10 +31,10 @@ class UploadFile(LoginRequiredMixin, View):
     def post(self, request: HttpRequest):
         f = request.FILES['f']
 
-        try:
-           soundfile.read(f)
-        except soundfile.SoundFileError:
-            return HttpResponse("invalid audio")
+        # try:
+        #    soundfile.read(f)
+        # except soundfile.SoundFileError:
+        #     return HttpResponse("invalid audio")
         
         return HttpResponse("ok")
 

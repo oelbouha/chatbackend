@@ -11,17 +11,18 @@ from asgiref.sync import async_to_sync
 from chat.models import Message, UserChannel
 
 
-
-
 class Chat(JsonWebsocketConsumer):
 
     STATUS = {}
     ACTION = {}
     MESSAGE = {}
+    
+    msg_identifier = ""
 
     def connect(self):
+        # print(self.scope['headers'])
         if self.scope['user'].is_authenticated:
-            chann = UserChannel.objects.create(
+            UserChannel.objects.create(
                 channel_name=self.channel_name,
                 user=self.scope['user']
             )
@@ -37,6 +38,9 @@ class Chat(JsonWebsocketConsumer):
 
 
     def receive_json(self, content, **kwargs):
+        
+        self.msg_identifier = content.get('identifier', None)
+
         valid, message = self.parser(content)
         if not valid:
             self.send_json({
@@ -119,16 +123,16 @@ class Chat(JsonWebsocketConsumer):
         if not type in ['atta', 'txt', 'vc', 'vd', 'img']:
             return (False, "invalid message type")
         
-        
-        try:
-            js = json.load(json_data['cnt'])
-            if type == 'txt':
-                return False, "text message must be plain text"
-            elif not 'f' in js:
-                return False, "missing file in attachment message"
-        except json.JSONDecodeError:
-            if type != 'txt':
-                return False, "attachment message must be json"
+        if not type == 'txt':
+            try:
+                js = json.load(json_data['cnt'])
+                if type == 'txt':
+                    return False, "text message must be plain text"
+                elif not 'f' in js:
+                    return False, "missing file in attachment message"
+            except json.JSONDecodeError:
+                if type != 'txt':
+                    return False, "attachment message must be json"
 
         
         self.MESSAGE['client'] = client
@@ -148,7 +152,8 @@ class Chat(JsonWebsocketConsumer):
             data = {
                 'm': method,
                 'clt': self.scope['user'].id,
-                'msg': self.STATUS['message'].id
+                'msg': self.STATUS['message'].id,
+                'identifier': self.msg_identifier
             }
             for chann in clt_channs:
                 async_to_sync(self.channel_layer.send)(chann.channel_name,{
@@ -164,6 +169,7 @@ class Chat(JsonWebsocketConsumer):
             data = {
                 'm': method,
                 'clt': self.scope['user'].id,
+                'identifier': self.msg_identifier
             }
 
             for chann in clt_channs:
@@ -176,6 +182,7 @@ class Chat(JsonWebsocketConsumer):
     def handle_messages_method(self):
         clt_channs = UserChannel.objects.filter(user=self.MESSAGE['client'])
 
+
         message = Message.objects.create(
             sender=self.scope['user'],
             recipient=self.MESSAGE['client'],
@@ -186,7 +193,8 @@ class Chat(JsonWebsocketConsumer):
         self.send_json({
             'm': 'st',
             'clt': self.MESSAGE['client'].id,
-            'msg': message.id
+            'msg': message.id,
+            'identifier': self.msg_identifier
         })
 
         if clt_channs.exists():
@@ -195,7 +203,8 @@ class Chat(JsonWebsocketConsumer):
                 'clt': self.scope['user'].id,
                 'tp': self.MESSAGE['type'],
                 'cnt': self.MESSAGE['content'],
-                'msg': message.id
+                'msg': message.id,
+                'identifier': self.msg_identifier
             }
             for chann in clt_channs:
                 async_to_sync(self.channel_layer.send)(chann.channel_name,{
