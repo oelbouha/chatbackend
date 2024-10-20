@@ -31,10 +31,7 @@ class UploadFile(LoginRequiredMixin, View):
     def post(self, request: HttpRequest):
         f = request.FILES['f']
 
-        # try:
-        #    soundfile.read(f)
-        # except soundfile.SoundFileError:
-        #     return HttpResponse("invalid audio")
+        # TODO file updload goes here
         
         return HttpResponse("ok")
 
@@ -114,10 +111,10 @@ class UploadFile(LoginRequiredMixin, View):
     def audio_validation(self, files):
         f = files['file']
 
-        try:
-            sf = soundfile.read(f)
-        except soundfile.SoundFileError:
-            return None, "invalid audio"
+        # try:
+        #     sf = soundfile.read(f)
+        # except soundfile.SoundFileError:
+        #     return None, "invalid audio"
         
         path = time.strftime("%Y/%m/%d/")
         audio_path = default_storage.save(path + f.name, f)

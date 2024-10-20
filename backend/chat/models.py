@@ -16,8 +16,14 @@ class TypeChoices(models.TextChoices):
 	ATTACHMENT = "ATT", _("Attachment")
 
 
+class Room(models.Model):
+	user1 = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="user1")
+	user2 = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="user2")
+
+
 class Message(models.Model):
 
+	room = models.ForeignKey(Room, on_delete=models.DO_NOTHING)
 	sender = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="sender")
 	recipient = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="recipient")
 	type = models.CharField(max_length=4, choices=TypeChoices.choices, default=TypeChoices.MESSAGE)
