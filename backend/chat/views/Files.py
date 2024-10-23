@@ -10,13 +10,13 @@ from django.db.models import Q
 from django.core.files.storage import default_storage
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.files.uploadedfile import TemporaryUploadedFile, InMemoryUploadedFile
+from django.core.files.uploadedfile import TemporaryUploadedFile
 
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
 
-from chat.models import Message
+from chat.models import Message, TypeChoices
 
 from PIL import Image
 from pypdf import PdfReader
@@ -40,7 +40,9 @@ class UploadFile(LoginRequiredMixin, View):
             files_path = self.file_validation(request.FILES)
             return JsonResponse(files_path)
         except ValidationError as e:
-            return HttpResponseBadRequest(e.message)
+            return JsonResponse({
+                "error": e.message
+            }, status=400)
 
 
 
@@ -182,64 +184,67 @@ class UploadFile(LoginRequiredMixin, View):
 class PreviewFile(LoginRequiredMixin, View):
 
     def get(self, request: HttpRequest, **kwargs):
-        id = kwargs['id']
-
         try:
+            id = kwargs['id']
             message = Message.objects.get(
                 Q(id=id),
                 Q(sender=request.user) | Q(recipient=request.user),
+                ~Q(type=TypeChoices.TEXT)
             )
+            content_dict = json.loads(message.content)
+
+            if not 'prv_f' in content_dict:
+                return JsonResponse({
+                    "error": "the message doesn't have a preview file"
+                }, status=400)
+            
+            file_url = default_storage.url(content_dict['prv_f'])
+            return JsonResponse({
+                'file': file_url
+            })
+
         except Message.DoesNotExist:
             return JsonResponse({
-                'error': 'you are Unauthorized to access this file'
-            }, status=401)
-        
-        
-        try:
-            content_dict = json.loads(message.content)
+                'error': 'message not found'
+            }, status=404)
+
         except json.JSONDecodeError:
             return JsonResponse({
                 'error': 'message content is not json'
             }, status=400)
 
-        if not 'prv_f' in content_dict:
-            return JsonResponse({
-                "error": "the message doesn't have a preview file"
-            }, status=400)
-        
-        file_url = default_storage.url(content_dict['prv_f'])
-        return JsonResponse({
-            'file': file_url
-        })
 
 
 
 class FullFile(LoginRequiredMixin, View):
 
     def get(self, request: HttpRequest, **kwargs):
-        id = kwargs['id']
-
         try:
+            id = kwargs['id']
             message = Message.objects.get(
                 Q(id=id),
                 Q(sender=request.user) | Q(recipient=request.user),
+                ~Q(type=TypeChoices.TEXT)
+
             )
+
+            content_dict = json.loads(message.content)
+
+            file_url = default_storage.url(content_dict['f'])
+            return JsonResponse({
+                'file': file_url
+            })
+
         except Message.DoesNotExist:
             return JsonResponse({
                 'error': 'you are Unauthorized to access this file'
-            }, status=401)
-        
-        try:
-            content_dict = json.loads(message.content)
+            }, status=404)
+
         except json.JSONDecodeError:
             return JsonResponse({
                 'error': 'message content is not a json'
             }, status=400)
         
-        file_url = default_storage.url(content_dict['f'])
-        return JsonResponse({
-            'file': file_url
-        })
     
 
-# TODO chekc the message type before returning the file url in preview and full views (there is a possibility the send json content in a text message)
+# TODO check the message type before returning the file url in preview and full views (there is a possibility the send json content in a text message)

@@ -4,11 +4,11 @@ from django.db.models import Q
 from django.contrib.auth.models import User
 from django.contrib.auth.models import AnonymousUser
 
-from channels.auth import UserLazyObject
+# from channels.auth import UserLazyObject
 from channels.generic.websocket import JsonWebsocketConsumer
 from asgiref.sync import async_to_sync
 
-from chat.models import Message, UserChannel, Room, StatusChoices
+from chat.models import Message, UserChannel, Room, StatusChoices, TypeChoices
 
 
 class Chat(JsonWebsocketConsumer):
@@ -16,11 +16,8 @@ class Chat(JsonWebsocketConsumer):
     STATUS = {}
     ACTION = {}
     MESSAGE = {}
-    
-    # msg_identifier = "" # TODO no longer needed
 
     def connect(self):
-        # print(self.scope['headers'])
         if self.scope['user'].is_authenticated:
             UserChannel.objects.create(
                 channel_name=self.channel_name,
@@ -122,7 +119,7 @@ class Chat(JsonWebsocketConsumer):
                 Q(user2=self.scope['user']) | Q(user1=client),
             )
 
-            if not type in ['atta', 'txt', 'vc', 'vd', 'img']:
+            if not type in TypeChoices:
                 return (False, "invalid message type")
 
             if (type != 'txt') and (not 'f' in content): # TODO handle file preview parsing
@@ -152,7 +149,6 @@ class Chat(JsonWebsocketConsumer):
                 'm': method,
                 'clt': self.scope['user'].id,
                 'msg': self.STATUS['message'].id,
-                # 'id': self.msg_identifier # TODO no longer needed
             }
             for chann in clt_channs:
                 async_to_sync(self.channel_layer.send)(chann.channel_name,{
@@ -168,7 +164,6 @@ class Chat(JsonWebsocketConsumer):
             data = {
                 'm': method,
                 'clt': self.scope['user'].id,
-                # 'identifier': self.msg_identifier  # TODO no longer needed
             }
 
             for chann in clt_channs:
@@ -204,7 +199,6 @@ class Chat(JsonWebsocketConsumer):
                 'tp': self.MESSAGE['type'],
                 'cnt': self.MESSAGE['content'],
                 'msg': message.id,
-                # 'identifier': self.msg_identifier # TODO no longer needed
             }
             for chann in clt_channs:
                 async_to_sync(self.channel_layer.send)(chann.channel_name,{

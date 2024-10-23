@@ -9,7 +9,7 @@ class StatusChoices(models.TextChoices):
 	SEEN = "SN", _("Seen")
 
 class TypeChoices(models.TextChoices):
-	MESSAGE = "MSG", _("Message")
+	TEXT = "TXT", _("Text")
 	IMAGE = "IMG", _("Image")
 	VIDEO = "VD", _("Video")
 	VOICE = "VC", _("Voice")
@@ -26,7 +26,7 @@ class Message(models.Model):
 	room = models.ForeignKey(Room, on_delete=models.DO_NOTHING)
 	sender = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="sender")
 	recipient = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="recipient")
-	type = models.CharField(max_length=4, choices=TypeChoices.choices, default=TypeChoices.MESSAGE)
+	type = models.CharField(max_length=4, choices=TypeChoices.choices, default=TypeChoices.TEXT)
 	status = models.CharField(max_length=4, choices=StatusChoices.choices, default=StatusChoices.SENT)
 	time = models.DateTimeField(auto_now=True)
 	content = models.TextField()
