@@ -1,13 +1,16 @@
 import time
 import json
 import mimetypes
+import ffmpeg
 
-from django.http import HttpRequest, JsonResponse, HttpResponse
+from django.http import HttpRequest, JsonResponse, HttpResponse, HttpResponseBadRequest
 from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
 from django.core.files.storage import default_storage
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import TemporaryUploadedFile, InMemoryUploadedFile
 
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -18,6 +21,9 @@ from chat.models import Message
 from PIL import Image
 from pypdf import PdfReader
 from pypdf.errors import PyPdfError
+from tempfile import NamedTemporaryFile
+from pathlib import Path
+
 
 # TODO don't forget to test >1M files
 
@@ -29,16 +35,16 @@ class UploadFile(LoginRequiredMixin, View):
 
 
     def post(self, request: HttpRequest):
-        f = request.FILES['f']
+        print(request.FILES)
+        try:
+            files_path = self.file_validation(request.FILES)
+            return JsonResponse(files_path)
+        except ValidationError as e:
+            return HttpResponseBadRequest(e.message)
 
-        # TODO file updload goes here
-        
-        return HttpResponse("ok")
 
 
     def file_validation(self, files):
-        # TODO file type validation
-        # TODO file size validation
 
         image_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
         video_types = ['video/mp4']
@@ -46,20 +52,20 @@ class UploadFile(LoginRequiredMixin, View):
         pdf_type = 'application/pdf'
 
         try:
-            file_type = mimetypes.guess_type(files['file'])[0]
+            file_type = mimetypes.guess_type(files['file'].name)[0]
         except KeyError:
-            return None, "file not found"
+            raise ValidationError("file not found")
         
         if file_type in image_types:
-            return self.image_validation()
+            return self.image_validation(files)
         elif file_type in video_types:
-            return self.video_validation()
+            return self.video_validation(files)
         elif file_type in audio_types:
-            return self.audio_validation()
+            return self.audio_validation(files)
         elif file_type == pdf_type:
-            return self.pdf_validation()
+            return self.pdf_validation(files)
         else:
-            return None, "file type not supported"
+            raise ValidationError("file type not supported")
         
 
     def image_validation(self, files):
@@ -67,13 +73,13 @@ class UploadFile(LoginRequiredMixin, View):
         try:
             prev_f = files['preview']
         except KeyError:
-            return None, "preview file not found"
+            raise ValidationError("preview file not found")
         
         if f.size > settings.IMG_SIZE:
-            return None, f"image too large (max size: f{settings.IMG_SIZE / 1_000_000} MB)"
+            raise ValidationError(f"image too large (max size: {settings.IMG_SIZE / 1_000_000} MB)")
         
         if prev_f.size > settings.IMG_PREV_SIZE:
-            return None, f"preview image too large (max size: f{settings.IMG_PREV_SIZE / 1_000_000} MB)"
+            raise ValidationError(f"preview image too large (max size: {settings.IMG_PREV_SIZE / 1_000_000} MB)")
         
         try:
             with Image.open(f) as img, Image.open(prev_f) as prev_img:
@@ -83,30 +89,60 @@ class UploadFile(LoginRequiredMixin, View):
                 img_path = default_storage.save(path + f.name, f)
                 prev_img_path = default_storage.save(path + prev_f.name, prev_f)
         except Exception:
-            return None, "invalid image"
+            raise ValidationError("invalid image")
         
         return {
-            'img': default_storage.url(img_path),
-            'prev_img': default_storage.url(prev_img_path)
-        }, ""
+            'file': default_storage.url(img_path),
+            'prev_file': default_storage.url(prev_img_path)
+        }
         
 
-    def video_validation(self, files):   
-        # TODO later
+    def video_validation(self, files):
         f = files['file']
         try:
             prev_f = files['preview']
         except KeyError:
-            return None, "preview file not found"
+            raise ValidationError("preview file not found")
         
+        if f.size > settings.VIDEO_SIZE:
+            raise ValidationError(f"video too large (max size: {settings.VIDEO_SIZE / 1_000_000} MB)")
+        
+        if prev_f.size > settings.VIDEO_PREV_SIZE:
+            raise ValidationError(f"video thumbnail too large (max size: {settings.VIDEO_PREV_SIZE / 1_000_000} MB)")
+        
+        video_path = ''
+        if isinstance(f, TemporaryUploadedFile):
+            video_path = f.temporary_file_path()
+            self.check_video_is_valid(video_path)
+        else:
+            with NamedTemporaryFile(suffix=Path(f.name).suffix) as temp_file:
+                for chunk in f.chunks():
+                    temp_file.write(chunk)
+                temp_file.flush()
+            self.check_video_is_valid(temp_file.name)
+
+
         try:
             with Image.open(prev_f) as thumbnail:
                 thumbnail.verify()
                 path = time.strftime("%Y/%m/%d/")
+                video_path = default_storage.save(path + f.name, f)
                 thumbnail_path = default_storage.save(path + prev_f.name, prev_f)
         except Exception:
-            return None, "invalid video"
+            raise ValidationError("invalid thumbnail")
         
+        return {
+            'file': default_storage.url(video_path),
+            'prev_file': default_storage.url(thumbnail_path)
+        }
+
+
+    def check_video_is_valid(self, video_path):
+        try:
+            ffmpeg.probe(video_path)
+        except ffmpeg.Error:
+            raise ValidationError("invalid video")
+
 
     def audio_validation(self, files):
         f = files['file']
@@ -128,12 +164,12 @@ class UploadFile(LoginRequiredMixin, View):
         f = files['file']
 
         if f.size > settings.PDF_SIZE:
-            return None, f"file too large (max size: f{settings.PDF_SIZE / 1_000_000} MB)"
+            raise ValidationError(f"file too large (max size: f{settings.PDF_SIZE / 1_000_000} MB)")
         
         try:
             pdf = PdfReader(f)
         except PyPdfError:
-            return None, "invalid pdf"
+            raise ValidationError("invalid pdf")
         
         path = time.strftime("%Y/%m/%d/")
         pdf_path = default_storage.save(path + f.name, f)
@@ -141,8 +177,6 @@ class UploadFile(LoginRequiredMixin, View):
         return {
             'pdf': default_storage.url(pdf_path)
         }
-        
-
         
 
 class PreviewFile(LoginRequiredMixin, View):
@@ -206,3 +240,6 @@ class FullFile(LoginRequiredMixin, View):
         return JsonResponse({
             'file': file_url
         })
+    
+
+# TODO chekc the message type before returning the file url in preview and full views (there is a possibility the send json content in a text message)
