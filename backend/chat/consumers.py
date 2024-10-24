@@ -3,6 +3,7 @@ import json
 from django.db.models import Q
 from django.contrib.auth.models import User
 from django.contrib.auth.models import AnonymousUser
+from django.core.exceptions import ValidationError
 
 # from channels.auth import UserLazyObject
 from channels.generic.websocket import JsonWebsocketConsumer
@@ -24,6 +25,7 @@ class Chat(JsonWebsocketConsumer):
                 user=self.scope['user']
             )
             self.accept()
+            self.send(f"I'am: {self.scope['user'].id}") # TODO remove this later
         else:
             self.close()
 
@@ -37,19 +39,19 @@ class Chat(JsonWebsocketConsumer):
     def receive_json(self, content, **kwargs):
         
         print("content: ", content)
-        valid, message = self.parser(content)
-        if not valid:
-            self.send_json({
-                'm': 'err',
-                'err': message
-            })
-        else:
+        try:
+            self.parser(content)
             if content['m'] in ['recv', 'sn']:
                 self.handle_message_status_methods(content['m'])
             elif content['m'] in ['typ', 'styp', 'rcd', 'srcd']:
                 self.handle_user_actions_methods(content['m'])
             else:
                 self.handle_messages_method()
+        except ValidationError as e:
+            self.send_json({
+                'm': 'err',
+                'err': e.message
+            })
 
 
     def chat_message(self, event):
@@ -58,56 +60,53 @@ class Chat(JsonWebsocketConsumer):
 
 
     def parser(self, json_data):
-        if (not 'm' in json_data) or (not 'clt' in json_data):
-            return (False, 'the method/client key not found')
         
-        clt = json_data['clt']
         try:
+            if (not 'm' in json_data):
+                raise ValidationError('method key not found')
+
+            if not json_data['m'] in ['sn', 'recv', 'typ', 'rcd', 'styp', 'srcd', 'msg']:
+                raise ValidationError('invalid method')
+
+            clt = json_data['clt']
             clt_id = int(clt)
-        except ValueError:
-            return (False, 'client must be a number')
-        
-        try:
             client = User.objects.get(id=clt_id)
+        
+            if json_data['m'] in ['sn', 'recv']:
+                self.parse_status_methods(json_data, client)
+            elif json_data['m'] in ['typ', 'rcd', 'styp', 'srcd']:
+                self.ACTION['client'] = client
+            else:
+                self.parse_message_method(json_data, client)
+
+        except KeyError:
+            raise ValidationError('client key not found')
+
+        except ValueError:
+            raise ValidationError('client must be a number')
+        
         except User.DoesNotExist:
-            return (False, 'client not found')
+            raise ValidationError('client not found')
 
-        if not json_data['m'] in ['sn', 'recv', 'typ', 'rcd', 'styp', 'srcd', 'msg']:
-            return (False, 'invalid method')
-
-        cleaned_data, message = (True, "")
-    
-        if json_data['m'] in ['sn', 'recv']:
-            cleaned_data, message = self.parse_status_methods(json_data, client)
-        elif json_data['m'] in ['typ', 'rcd', 'styp', 'srcd']:
-            self.ACTION['client'] = client
-            return (True, "")
-        else:
-            cleaned_data, message = self.parse_message_method(json_data, client)
-
-        return (cleaned_data, message)
 
  
     def parse_status_methods(self, json_data, client):
-
-        if not 'msg' in json_data:
-            return False, 'message key not found'
-        
-        msg = json_data['msg']
-
         try:
+            msg = json_data['msg']
             msg_id = int(msg)
-        except ValueError:
-            return (False, 'message must be a number')
-        
-        try:
             message = Message.objects.get(id=msg_id)
+            self.STATUS['client'] = client
+            self.STATUS['message'] = message
+
+        except KeyError:
+            raise ValidationError('message key not found')
+
+        except ValueError:
+            raise ValidationError('message must be a number')
+    
         except Message.DoesNotExist:
-            return (False, 'message with the given id not found')
+            raise ValidationError('message with the given id not found')
         
-        self.STATUS['client'] = client
-        self.STATUS['message'] = message
-        return (True, "")
 
 
     def parse_message_method(self, json_data, client):
@@ -116,27 +115,27 @@ class Chat(JsonWebsocketConsumer):
             content = json_data['cnt']
             id = json_data['id']
             room = Room.objects.get(
-                Q(user1=client) | Q(user2=self.scope['user']),
-                Q(user2=self.scope['user']) | Q(user1=client),
+                Q(user1=client) | Q(user1=self.scope['user']),
+                Q(user2=self.scope['user']) | Q(user2=client),
             )
 
             if not type in TypeChoices:
-                return (False, "invalid message type")
+                raise ValidationError("invalid message type")
 
-            if (type != 'txt') and (not 'f' in content): # TODO handle file preview parsing
-                return False, "missing file in attachment message"
+            if (type != TypeChoices.TEXT) and (not 'f' in content): # TODO handle file preview parsing
+                raise ValidationError("missing file in attachment message")
 
             self.MESSAGE['client'] = client
             self.MESSAGE['id'] = id
             self.MESSAGE['room'] = room
             self.MESSAGE['type'] = type
             self.MESSAGE['content'] = content
-            return (True, "")
 
         except KeyError:
-            return False, "type | content | identifier room key not found"
+            raise ValidationError("type | content | identifier key not found")
+
         except Room.DoesNotExist:
-            return False, "no room between you and the recipient"
+            raise ValidationError("no room between you and the recipient")
 
 
     def handle_message_status_methods(self, method):
