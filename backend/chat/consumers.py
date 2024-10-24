@@ -36,7 +36,7 @@ class Chat(JsonWebsocketConsumer):
 
     def receive_json(self, content, **kwargs):
         
-
+        print("content: ", content)
         valid, message = self.parser(content)
         if not valid:
             self.send_json({
@@ -53,6 +53,7 @@ class Chat(JsonWebsocketConsumer):
 
 
     def chat_message(self, event):
+        print("event: ", event)
         self.send_json(content=event['data'])
 
 

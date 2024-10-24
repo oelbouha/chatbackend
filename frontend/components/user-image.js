@@ -24,12 +24,14 @@ userMessageTemplate.innerHTML = /*html*/ `
         }
 
         #msg-status-container {
+            align-self: flex-end;
+            gap: 2px;
+            position: absolute;
+            bottom: 3%;
             display: flex;
             flex-direction: row;
-            justify-content: center;
             align-items: center;
             box-sizing: border-box;
-            gap: 5px;
             min-width: 70px;
         }
 
@@ -40,10 +42,8 @@ userMessageTemplate.innerHTML = /*html*/ `
 
         .msg-container {
             display: flex;
-            flex-direction: row;
-            justify-content: center;
+            flex-direction: column;
             align-items: end;
-            gap: 10px;
             background-color: red;
             background-color: #005c4b;
             border-radius: 7.5px;
@@ -60,23 +60,35 @@ userMessageTemplate.innerHTML = /*html*/ `
         .user-message .message-content {
             background-color: #f0c808;
             color: #fff;
-            border-bottom-right-radius: 2px;
+            border-bottom-right-radius: 12px;
 
         }
-        #user-msg {
-            color: white;
-        }
+
         .message-time {
             align-self: flex-end;
             font-size: 12px;
-            color: #cdd3d7;
+            color: white;
             min-width: 50px;
         }
+        #image-container {
+            width: 200px;
+            height: 200px;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+		#image-src {
+            border-radius: 7.5px;
+            width: 200px;
+            height: 200px;
+		}
 		
 	</style>
-	<div class="message user-message">
-        <div class="msg-container" >
-            <div class="user-msg"></div>
+	<div class="message user-message position-relative">
+        <div class="msg-container " >
+            <div class="image-container">
+				<img id="image-src" src="assets/after.png" />
+			</div>
             <div id="msg-status-container" >
                 <div class="message-time"></div>
                 <div class="message-status">
@@ -87,7 +99,7 @@ userMessageTemplate.innerHTML = /*html*/ `
     </div>
 `;
 
-export class userMessage extends HTMLElement {
+export class userImage extends HTMLElement {
 	constructor() {
 		super();
 		this.attachShadow({mode:'open'});
@@ -102,9 +114,8 @@ export class userMessage extends HTMLElement {
         
         const user = this.getAttribute("user");
         
-        const userMessage = this.shadowRoot.querySelector('.user-msg');
-        userMessage.textContent = message;
-        userMessage.style["color"] = "white"
+        const userMessage = this.shadowRoot.querySelector('#image-src');
+        userMessage.src = message;
         
         const userMessageTime = this.shadowRoot.querySelector('.message-time');
         userMessageTime.textContent = time;

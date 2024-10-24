@@ -37,7 +37,7 @@ class Message(models.Model):
 		return cls.objects.filter(
 			models.Q(sender=user1, recipient=user2) |
 			models.Q(sender=user2, recipient=user1)
-		).order_by('time')
+		).order_by('id')
 	
 	def __str__(self) -> str:
 		return f"msg {self.time.date()} at {self.time.time().hour}:{self.time.time().hour}"

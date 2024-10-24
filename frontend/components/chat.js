@@ -1,8 +1,11 @@
 import { websocket } from "./net.js";
-import { getData } from "./net.js"
+import { getData, formatTime, getCurrentTime } from "./net.js"
 
 let typingTimer;
 const doneTypingInterval = 2000;
+let typingTime;
+
+
 
 
 function getTimestamp(format = 'ms') {
@@ -21,9 +24,6 @@ function getTimestamp(format = 'ms') {
     
     return formats[format] || formats.ms;
 }
-
-
-
 
 const template = document.createElement('template');
 
@@ -259,7 +259,7 @@ template.innerHTML = /*html*/`
             color: #6c757d;
         }
 
-        .add-image-icon {
+        .add-file-icon {
             cursor: pointer;
             width: 25px;
             height: 25px;
@@ -275,7 +275,16 @@ template.innerHTML = /*html*/`
         #send-btn-icon.visible {
             display: block;
         }
-
+        .custom-file-upload {
+            background-color: blue;
+            border: 1px solid #ccc;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        input[type="file"] {
+            display: none;
+        }
 
     @media (max-width: 1200px) {
         #user-profile {
@@ -347,12 +356,17 @@ template.innerHTML = /*html*/`
                     </div>
                 </div>
 
-                <div id="chat-conversation"> </div>
+                <div id="chat-conversation" class="p-3"> </div>
                 
                 <div id="input-message-container">
-                    <svg class="add-image-icon" xmlns="http://www.w3.org/2000/svg" id="Layer_1" data-name="Layer 1" viewBox="0 0 24 24">
-                        <path d="m16,7c0,1.105-.895,2-2,2s-2-.895-2-2,.895-2,2-2,2,.895,2,2Zm6.5,11h-1.5v-1.5c0-.828-.671-1.5-1.5-1.5s-1.5.672-1.5,1.5v1.5h-1.5c-.829,0-1.5.672-1.5,1.5s.671,1.5,1.5,1.5h1.5v1.5c0,.828.671,1.5,1.5,1.5s1.5-.672,1.5-1.5v-1.5h1.5c.829,0,1.5-.672,1.5-1.5s-.671-1.5-1.5-1.5Zm-6.5-3l-4.923-4.923c-1.423-1.423-3.731-1.423-5.154,0l-2.923,2.923v-7.5c0-1.379,1.122-2.5,2.5-2.5h10c1.378,0,2.5,1.121,2.5,2.5v6c0,.828.671,1.5,1.5,1.5s1.5-.672,1.5-1.5v-6c0-3.032-2.467-5.5-5.5-5.5H5.5C2.467,0,0,2.468,0,5.5v10c0,3.032,2.467,5.5,5.5,5.5h6c.829,0,1.5-.672,1.5-1.5v-.5c0-1.657,1.343-3,3-3v-1Z" fill="#022f40"/>
-                    </svg>
+                    <div class="input_container">
+                        <label for="files" class="btn">
+                            <svg class="add-file-icon" xmlns="http://www.w3.org/2000/svg" id="Layer_1" data-name="Layer 1" viewBox="0 0 24 24">
+                                <path d="m16,7c0,1.105-.895,2-2,2s-2-.895-2-2,.895-2,2-2,2,.895,2,2Zm6.5,11h-1.5v-1.5c0-.828-.671-1.5-1.5-1.5s-1.5.672-1.5,1.5v1.5h-1.5c-.829,0-1.5.672-1.5,1.5s.671,1.5,1.5,1.5h1.5v1.5c0,.828.671,1.5,1.5,1.5s1.5-.672,1.5-1.5v-1.5h1.5c.829,0,1.5-.672,1.5-1.5s-.671-1.5-1.5-1.5Zm-6.5-3l-4.923-4.923c-1.423-1.423-3.731-1.423-5.154,0l-2.923,2.923v-7.5c0-1.379,1.122-2.5,2.5-2.5h10c1.378,0,2.5,1.121,2.5,2.5v6c0,.828.671,1.5,1.5,1.5s1.5-.672,1.5-1.5v-6c0-3.032-2.467-5.5-5.5-5.5H5.5C2.467,0,0,2.468,0,5.5v10c0,3.032,2.467,5.5,5.5,5.5h6c.829,0,1.5-.672,1.5-1.5v-.5c0-1.657,1.343-3,3-3v-1Z" />
+                            </svg>
+                        </label>
+                        <input id="files" style="display:none;" type="file">
+                    </div>
                     <input id="message-input" type="text" placeholder="Type a message">
                     <svg id="send-btn-icon" xmlns="http://www.w3.org/2000/svg" id="Layer_1" data-name="Layer 1" viewBox="0 0 24 24" width="512" height="512">
                         <path d="m4.034.282C2.981-.22,1.748-.037.893.749.054,1.521-.22,2.657.18,3.717l4.528,8.288L.264,20.288c-.396,1.061-.121,2.196.719,2.966.524.479,1.19.734,1.887.734.441,0,.895-.102,1.332-.312l19.769-11.678L4.034.282Zm-2.002,2.676c-.114-.381.108-.64.214-.736.095-.087.433-.348.895-.149l15.185,8.928H6.438L2.032,2.958Zm1.229,18.954c-.472.228-.829-.044-.928-.134-.105-.097-.329-.355-.214-.737l4.324-8.041h11.898L3.261,21.912Z" fill="#0000FF"/>
@@ -399,16 +413,12 @@ export class chat extends HTMLElement {
 
         this.convo_list_users = [
         {
-            "userName": "mohamed",
-            "id": "5"
-        },
-        {
-            "userName": "ahmed",
-            "id": "6"
+            "userName": "jawad",
+            "id": "2"
         }, 
         {
-            "userName": "jawad",
-            "id": "4"
+            "userName": "khalid",
+            "id": "10"
         }, 
         ];
 
@@ -421,42 +431,26 @@ export class chat extends HTMLElement {
         this.isSend = false
 
         this.username = "outman"
-        this.userId = 3
+        this.userId = 1
 
         websocket.onmessage = (e) => {
-            const message = JSON.parse(e.data);
-                // console.log("received :: ", message)
-                    
-            switch (message.m) {
-                case "msg":
-                    this.handleIncomingMessage(message)
-                    break 
-                case "st":
-                    this.handleMessageStatus(message)
-                    break 
-                case "recv":
-                    this.handleMessageStatus(message)
-                    break 
-                case "sn":
-                    this.handleMessageStatus(message)
-                    break 
-                case "typ":
-                    this.handleTyping(message)
-                    break 
-                case "styp":
-                    this.handleTyping(message)
-                    break 
-                case "err":
-                        console.log("ther is an error in the message", message)
-                        break
-                    }  
-                }
-
-
+            const message = JSON.parse(e.data);   
+            if (message.m == "msg")
+                this.handleIncomingMessage(message)
+            else if (message.m == "st" || message.m == "sn" || message.m == "recv")
+                this.handleMessageStatus(message)
+            else if (message.m == "typ")
+                this.handleTyping(message)
+            else if (message.m == "styp")
+                this.handleTyping(message)
+        }
+                
         this.identifier = 0
         this.clientsMessages = new Map()
-        this.userMessages = new Map()
-
+        this.databaseMessages = new Map()
+        
+        this.render();
+        this.updateUnreadMemberMessages()
     }
 
     updateScroll() {
@@ -501,63 +495,44 @@ export class chat extends HTMLElement {
         userProfile.appendChild(wpProfile);
     }
 
-    async fetchData() {
-        let data = await getData();
-        for (const item of data)
-            console.log(item)
-        return data
+    async fetchData(userId, clientId) {
+        let data = await getData(userId, clientId);
+        if (!data) return
+        this.databaseMessages.set(clientId, data)
+        for (let message of data)
+            this.storeMessage(clientId, message)
+        // console.log(this.clientsMessages)
     }
 
-    async handleMemberClick(event) {
-        const profilePic = event.detail.profilePic;
+    handleMemberClick(event) {
+        const profilePic = event.detail.profilePic
 
         if (this.activeMember) {
             this.activeMember.deactivate();
         }
 
-        const clickedMember = event.target;
+        const clickedMember = event.target
         clickedMember.activate();
         if (clickedMember === this.activeMember) return 
-        this.activeMember = clickedMember;
+
+        this.activeMember = clickedMember
 
         this.activeMemberId = event.detail.id
-        this.activeMemberUsername = event.detail.username;
+        this.activeMemberUsername = event.detail.username
 
-        // console.log("member active :: ", this.activeMember)
-        // console.log ("userName", this.activeMemberUsername, this.activeMemberId)
-
+        // console.debug(`active member : ${this.activeMemberUsername}`)
+        
         // display user heeader
         this.displayConvoHeader(event)
-
-
-        // get messages from database
-        const data = await this.fetchData()
-        this.renderOldMessages(data)
         
         // load member conversation
-        // this.renderClientMessages(this.activeMemberId)
-        
+        this.renderActiveUserMessages()
+
         // /// load the profile info
         this.displayClientProfile(event)
       
-
         // close overlay
         this.handleOverlayClick();
-    }
-
-    renderOldMessages(messages) {
-
-        const chatConversation = this.shadowRoot.querySelector("#convo-messages-container")
-        const messagesBody = chatConversation.querySelector('#chat-conversation');
-        messagesBody.innerHTML = ``
-        
-        const membersContainer = this.shadowRoot.querySelector('.members-container');
-        // const targetMember = membersContainer.querySelector(`wc-chat-member[id="${id}"]`)
-
-        const chatConvoComponent = document.createElement('wc-chat-conversation');
-        chatConvoComponent.loadOldMessages(messages, this.userId, this.activeMemberId)
-        messagesBody.appendChild(chatConvoComponent)
-        this.updateScroll()
     }
 
     handleSearch(event)  {
@@ -576,7 +551,6 @@ export class chat extends HTMLElement {
     }
 
     connectedCallback() {
-        this.render();
         this.shadowRoot.addEventListener('memberClicked', this.handleMemberClick.bind(this));
         
         const mainSearch = this.shadowRoot.querySelector('#convo-search');
@@ -587,8 +561,76 @@ export class chat extends HTMLElement {
 
         this.addMessageEventListener()
         this.addOffcanvasEventListener()
-        
+        this.uploadFilesEventListner()
     }
+
+    async uploadFile(formData) {
+        console.log(formData)
+        try {
+            const response = await fetch('http://127.0.0.1:8000/upload/', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) throw new Error('Upload failed');
+            
+            const result = await response.json();
+            console.log('Upload successful:', result);
+            
+        } catch (error) {
+            console.error(error)
+        }
+    }
+
+    uploadFilesEventListner() {
+        this.shadowRoot.querySelector('.add-file-icon').addEventListener('click' , () =>{
+            const fileInput = this.shadowRoot.querySelector('#files')
+            fileInput.click()
+            
+            fileInput.addEventListener('change', (event) => {
+                const selectedFile = event.target.files[0]
+                if (selectedFile) {
+                    const convo = this.shadowRoot.querySelector('#chat-conversation')
+                    const fileType = selectedFile.type
+                    console.log(fileType)
+                    if (fileType.startsWith('image/')) {
+                        console.log("processing image ...")
+                        const reader = new FileReader()
+
+                        reader.onload = (e) => {
+                            const imagePreview = document.createElement('img')
+                            imagePreview.src = e.target.result
+
+                            const wc = document.createElement('wc-user-image')
+                            wc.addMessage(imagePreview.src, "10:10 AM", "seen")
+                            convo.appendChild(wc)
+                        }
+                        reader.readAsDataURL(selectedFile);
+                        
+                        const formdata = new FormData()
+                        
+                        formdata.append('file', selectedFile)
+                        formdata.append('preview', selectedFile)
+                        this.uploadFile(formdata)
+                    }
+                    else if (fileType.startsWith('video/')) {
+                        console.log("processing video ...")
+                        const reader = new FileReader()
+                        
+                        reader.onload = (e) => {
+                            const wc = document.createElement('wc-user-video')
+                            wc.addMessage(e.target.result, "10:10", "seen")
+                            convo.appendChild(wc)
+                        }
+                        reader.readAsDataURL(selectedFile);
+                    }
+                }
+
+            })
+        })
+
+    }
+
     addOffcanvasEventListener() {
         const profileOffcanvasCloseBtn = this.shadowRoot.querySelector('#profileOffcanvasCloseBtn');
         profileOffcanvasCloseBtn.addEventListener('click', this.handleProfileCloseOffcanvas.bind(this));
@@ -612,8 +654,11 @@ export class chat extends HTMLElement {
         sendBtn.addEventListener('click', this.sendMessage.bind(this));
         
         const inputMessage = this.shadowRoot.querySelector('#message-input');
-        inputMessage.addEventListener('input', this.displaySendBtn.bind(this));
-        inputMessage.addEventListener('keypress', this.handleKeyPress.bind(this));
+        inputMessage.addEventListener('input', this.handleMessageSendbtn.bind(this));
+        inputMessage.addEventListener('keypress', (e) => {
+            if (e.key == "Enter")
+                this.sendMessage(e);
+        });
     }
 
     displayUserIsTyping(clientId) {
@@ -624,40 +669,35 @@ export class chat extends HTMLElement {
         
         userHeaderStatus.textContent = "typing..."
         userHeaderStatus.style["color"] = "green"
-
-
     }
     
     hideIsTyping(clientId) {
 
         const userHeaderStatus = this.shadowRoot.querySelector(".convo-user-status")
-        
-        // console.log("user :: ", userHeaderStatus)
-
         if (!userHeaderStatus) return
 
-        console.log("sts", userHeaderStatus.textContent )
-
         if (userHeaderStatus.textContent == "typing...")
-            userHeaderStatus.textContent = "online"
-        
+            userHeaderStatus.textContent = "online" // update it to the last status the user was
+         
         // update the status of the user
         userHeaderStatus.textContent = "online"
         userHeaderStatus.style["color"] = "green"
-
-        console.log("sts content::", userHeaderStatus.textContent)
     }
 
     handleTyping(message) {
-        console.log(message)
-
         const membersContainer = this.shadowRoot.querySelector('.members-container');
         const memberElement = membersContainer.querySelector(`wc-chat-member[id="${message.clt}"]`);
 
-        console.log("chat member :: ", memberElement)
+
         if (message.m == "typ"){
+            clearTimeout(typingTime)
             memberElement.displayIsTyping()
             this.displayUserIsTyping(message.clt)
+            
+            typingTime = setTimeout(() => {
+                memberElement.stopIsTyping()
+                this.hideIsTyping(message.clt)
+            }, doneTypingInterval)
         }
         else {
             memberElement.stopIsTyping()
@@ -665,42 +705,42 @@ export class chat extends HTMLElement {
         }
     }
 
-    handleIncomingMessage(message) {
-        // console.log ("new message:: ", message);
-        
-        let response = {
-            "m": "recv",
-            "clt": message.clt,
-            "msg": message.msg
-        }
-        websocket.send(JSON.stringify(response));
-        
-        if (message.clt == this.activeMemberId)
-            this.activeMember.updateLastMessage(message)
+    displayClientMessage(message) {
+        const conversation = this.shadowRoot.querySelector('#chat-conversation');
+        if (!conversation) return
 
-        const targrtClient = this.convo_list_users.find(user => user.id == message.clt)
-        const membersContainer = this.shadowRoot.querySelector('.members-container');
-        const memberElement = membersContainer.querySelector(`wc-chat-member[username="${targrtClient.userName}"]`);
-        
-        const conversation = this.shadowRoot.querySelector('wc-chat-conversation');
-        if (!conversation) {
-            return this.updateUnreadMessages(targrtClient, message)
-        }
-        
-        const client = this.convo_list_users.find(user => user.id == message.clt)
-        if (!client) return 
-        
-        if (client.id != this.activeMember.id) {
-            return this.updateUnreadMessages(targrtClient, message)
-        }
-        
-        conversation.displayClientMessage(message);
-        
-        this.storeMessage(this.activeMemberId, message, "client")
+        const clientMessageComponent = document.createElement('wc-client-message')
+        clientMessageComponent.setMessage(message.cnt, message.time)
+        conversation.appendChild(clientMessageComponent)
+    }
 
-        memberElement.hideMessageCounter()
+    handleIncomingMessage(message) {        
+        this.storeMessage(message.clt, message, "client")
+        console.warn(`new message recieved  :  ${JSON.stringify(message)}`)
 
-        response = {
+        message["time"] =  getCurrentTime()
+        this.markeAsRecieved(message)
+
+        const usersContainer = this.shadowRoot.querySelector('.members-container');
+        
+        const recipient = this.convo_list_users.find(user => user.id == message.clt)
+        if (!recipient) return 
+
+        const recipientComponent = usersContainer.querySelector(`wc-chat-member[username="${recipient.userName}"]`);
+        
+        if (!this.activeMemberId || recipient.id != this.activeMember.id) {
+            this.updateUnreadMessages(recipient, message)
+            return 
+        }
+        this.displayClientMessage(message)
+        this.activeMember.updateLastMessage(message, this.userId)
+        recipientComponent.hideMessageCounter()
+        this.markeAsRead(message)
+    }
+    
+    markeAsRead(message) {
+        message["status"] = "sn"
+        const response = {
             "m": "sn",
             "clt": this.activeMemberId,
             "msg": message.msg
@@ -708,27 +748,42 @@ export class chat extends HTMLElement {
         websocket.send(JSON.stringify(response));    
     }
 
-    storeMessage(key, value, type) {
+    markeAsRecieved(message) {
+        message["status"] = "recv"
+        const response = {
+            "m": "recv",
+            "clt": message.clt,
+            "msg": message.msg
+        }
+        websocket.send(JSON.stringify(response));
+    }
+
+    storeMessage(key, message, type=null) {
+        let msgType = "user"
+        if (message.sender == key)
+        msgType = "client"
         if (!this.clientsMessages.has(key)) {
             this.clientsMessages.set(key, []);
         }
-        value["type"] = type
-        this.clientsMessages.get(key).push(value);
+        if (!type)
+            message["type"] = msgType
+        else
+            message["type"] = type
+        if (!message.cnt)
+            message["cnt"] = message.content
+        this.clientsMessages.get(key).push(message);
     }
     
-    updateUnreadMessages(targrtClient, message) {
-        this.storeMessage(targrtClient.id , message, "client")
+    updateUnreadMessages(recipient, message) {
+        this.storeMessage(recipient.id , message, "client")
 
-        
-        const membersContainer = this.shadowRoot.querySelector('.members-container');
-        const memberElement = membersContainer.querySelector(`wc-chat-member[username="${targrtClient.userName}"]`);
-        
-        // console.log("messages ", memberElement)
-        
-        memberElement.displayMessageCounter(1)
-        memberElement.updateLastMessage(message)
+        const usersContainer = this.shadowRoot.querySelector('.members-container');
+        const recipientComponent = usersContainer.querySelector(`wc-chat-member[username="${recipient.userName}"]`);
 
-        this.moveMemberElementToTop(targrtClient)
+        recipientComponent.displayMessageCounter(1, message)
+        recipientComponent.updateLastMessage(message, this.userId)
+
+        this.moveMemberElementToTop(recipient)
     }
 
     moveMemberElementToTop(targrtClient) {
@@ -755,114 +810,181 @@ export class chat extends HTMLElement {
     }
 
     handleMessageStatus(message) {
-        console.log ("updating message status :: ", message);
-        
-        const conversation = this.shadowRoot.querySelector('wc-chat-conversation');
-        
         const userId = message.clt
-        
-        console.log("looking ", this.activeMemberId)
-        
-        const activeMember = this.getMessagesById(userId)
-        if (!activeMember) return 
-        console.log("member to update", activeMember)
-
-        let messageToUpdate = activeMember.find(msg => msg.identifier == message.identifier)
-        if (!messageToUpdate)
-            messageToUpdate = activeMember.find(msg => msg.msg == message.msg)
-        
-        if (messageToUpdate) {
-            messageToUpdate["status"] = message.m
-            messageToUpdate["msg"] = message.msg
+        const activeMemberMessages = this.getMessagesById(userId)
+        if (!activeMemberMessages) {
+            console.warn(`no messages found for user : ${userId}`)
+            return
         }
 
-        // render the conversation
+        let messageToUpdate = activeMemberMessages.find(msg => msg.msg == message.msg)
+        if (!messageToUpdate) {
+            // console.warn(`couldn't find message  by id : ${JSON.stringify(message)}`)
+            messageToUpdate = activeMemberMessages.find(msg => msg.identifier == message.identifier)
+        }
+        if (!messageToUpdate) {
+            console.warn(`couldn't find the target message to update : ${JSON.stringify(message)} `)
+            return
+        }
         
-        this.renderClientMessages(userId)
-        // console.log("msg to update :: ", messageToUpdate)
+        messageToUpdate["status"] = message.m
+        messageToUpdate["msg"] = message.msg
         
-        // conversation.updateMessageStatus(message)
+        const recipient = this.convo_list_users.find(user => user.id == message.clt)
+        if (!recipient) {
+            console.warn(`couldn't find the target user for this message : ${JSON.stringify(message)} `)
+            return
+        }
+
+        if (message.clt == this.activeMemberId) {
+            const conversation = this.shadowRoot.querySelector("#chat-conversation")
+            let messageComponent = conversation.querySelector(`wc-user-message[message-id="${message.identifier}"]`)
+            if (!messageComponent)
+                messageComponent = conversation.querySelector(`wc-user-message[message-id="${message.msg}"]`)
+            if (messageComponent) {
+                messageComponent.remove()
+                this.displayUserMessage(messageToUpdate)
+            }
+        }
+        else {
+            const usersContainer = this.shadowRoot.querySelector('.members-container');
+            const recipientComponent = usersContainer.querySelector(`wc-chat-member[username="${recipient.userName}"]`);
+            recipientComponent.updateLastMessage(messageToUpdate, this.userId)
+        }
     }
 
-    renderClientMessages(id) {
+    getUnreadMessagesCount(id) {
+        // console.log(this.databaseMessages)
+        const array = this.databaseMessages.get(id)
+        if (!array) return 0
+        let count = 0
+
+        for (let i = array.length - 1; i >= 0; --i) {
+            const item = array[i]
+            if (item.sender == id) {
+                if (item.status == "seen" || item.status == "sn")
+                    return count
+                count++;
+            }
+            else
+                return count
+        }
+        return count;
+    }
+
+    renderClientMessages(messages, activeMemberId) {
+        if (!messages) return 
+        
+        const conversation = this.shadowRoot.querySelector('#chat-conversation');
+        if (!conversation) return 
+        
+        messages.forEach(message => {
+            if (message.type == "client") {
+                const wpClientComponent = document.createElement('wc-client-message')
+                wpClientComponent.setMessage(message.cnt, formatTime(message.time))
+                conversation.appendChild(wpClientComponent)
+       
+                if (message.status != "seen" && message.status != "sn")
+                    this.markeAsRead(message)
+            }
+            else {
+                const wpUserComponent = document.createElement('wc-user-message');
+                wpUserComponent.addMessage(message.cnt, formatTime(message.time), message.status);
+                conversation.appendChild(wpUserComponent);
+            }
+        });
+    }
+    renderActiveUserMessages() {
 
         const chatConversation = this.shadowRoot.querySelector("#convo-messages-container")
         const messagesBody = chatConversation.querySelector('#chat-conversation');
         messagesBody.innerHTML = ``
         
-        let targetMemberMessages = this.getMessagesById(id)
-        
-        const membersContainer = this.shadowRoot.querySelector('.members-container');
-        const targetMember = membersContainer.querySelector(`wc-chat-member[id="${id}"]`)
-
-        const chatConvoComponent = document.createElement('wc-chat-conversation');
-        chatConvoComponent.setAttribute('username', this.activeMemberUsername);
-        chatConvoComponent.loadClientMessages(targetMemberMessages, id)
-        if (targetMember)
-            targetMember.hideMessageCounter()
-        messagesBody.appendChild(chatConvoComponent);
-        
-        if (targetMemberMessages) {
-            const lastMessage = targetMemberMessages[targetMemberMessages.length - 1]
-            console.log("last message :: ", lastMessage)
-            if (targetMember)
-                targetMember.updateLastMessage(lastMessage)
+        let targetMemberMessages = this.getMessagesById(this.activeMemberId)
+        if (!targetMemberMessages || targetMemberMessages.length == 0) {
+            console.warn(`no conversation messages found for user : ${this.activeMemberId}`)
+            return 
         }
+
+        console.debug(`rendring  conversation for user : ${this.username} with ${this.activeMemberUsername}`)
+
+        const membersContainer = this.shadowRoot.querySelector('.members-container');
+        const targetMember = membersContainer.querySelector(`wc-chat-member[id="${this.activeMemberId}"]`)
+        if (!targetMember) {
+            console.warn(`target member Element not found : ${this.username}`)
+            return 
+        }
+
+        targetMember.hideMessageCounter()
+
+        const lastMessage = targetMemberMessages[targetMemberMessages.length - 1]
+        this.renderClientMessages(targetMemberMessages, this.activeMemberId)
+        targetMember.updateLastMessage(lastMessage, this.userId)
+        this.updateScroll()
+    }
+
+    displayUserMessage(message) {
+        const conversation = this.shadowRoot.querySelector('#chat-conversation');
+
+        console.log(message)        
+        const UserMessageComponent = document.createElement('wc-user-message');
+        UserMessageComponent.addMessage(message.cnt, message.time, message.status);
+        UserMessageComponent.setAttribute("message-id",  message.identifier);
+        if (message.msg)
+            UserMessageComponent.setAttribute("message-id",  message.msg);
+        
+        conversation.appendChild(UserMessageComponent);
     }
 
     sendMessage(event) {
         const input = this.shadowRoot.querySelector('#message-input');
 
-        const msg = input.value;
+        const message = input.value;
         input.value = "";
         input.focus();
 
-        if (msg) {
-            const conversation = this.shadowRoot.querySelector('wc-chat-conversation');
-            if (conversation) {
-                
-                this.identifier = getTimestamp()
-                const message = {
-                    "m": "msg",
-                    "clt": this.activeMemberId, // client id
-                    "tp": "txt",
-                    "identifier": this.username + this.identifier,
-                    "cnt": msg,
-                    "status": "pending"
-                }
-
-                this.storeMessage(this.activeMemberId, message, "user")
-
-                conversation.displayUserMessage(message);
-                websocket.send(JSON.stringify(message));
-                
-                this.updateScroll();
+        if (message) {
+            this.identifier = getTimestamp()
+            const response = {
+                "m": "msg",
+                "clt": this.activeMemberId, // client id
+                "tp": "TXT",
+                "identifier": this.username + this.identifier,
+                "cnt": message,
+                "status": "pending",
+                "time": getCurrentTime()
             }
+            websocket.send(JSON.stringify(response));
+            this.displayUserMessage(response)
+            this.storeMessage(this.activeMemberId, response, "user")
+            this.updateScroll();
         }
     }
 
-    displaySendBtn(event) {
+    handleMessageSendbtn(event) {
         const sendBtnIcon = this.shadowRoot.querySelector('#send-btn-icon');
-        
+        if (!sendBtnIcon) {
+            console.warn("send btn not found : #send-btn-icon ")
+            return 
+        }
         clearTimeout(typingTimer);
 
         const message = event.target.value;
         if (message) {
             sendBtnIcon.classList.add('visible');
+                websocket.send(JSON.stringify({
+                    "m": "typ", "clt": this.activeMemberId
+                }));
             
-                const response = {
-                    "m": "typ",
-                    "clt": this.activeMemberId
-                }
-                websocket.send(JSON.stringify(response));
-            
-            if (typingTimer) {
+            if (typingTimer)
                 clearTimeout(typingTimer);
+            
+            typingTimer = setTimeout( () => {
+                websocket.send(JSON.stringify({
+                    "m": "styp", "clt": this.activeMemberId
+                }));
             }
-            const id = this.activeMemberId
-            typingTimer = setTimeout(
-                this.doneTyping.bind(this)
-            , doneTypingInterval);
+            , doneTypingInterval );
 
         }
         else {
@@ -870,25 +992,11 @@ export class chat extends HTMLElement {
         }
     }
 
-    doneTyping() {
-        const response = {
-            "m": "styp",
-            "clt": this.activeMemberId
-        }
-        websocket.send(JSON.stringify(response));
-    }
-
-    handleKeyPress(event) {
-        if (event.key == "Enter")
-            this.sendMessage(event);
-    }
-
     handleListOffcanvas(event) {
         const listOffcanvasBody = this.shadowRoot.querySelector('#list-offcanvas-body');
         
         if (this.isActive == false)  {
             this.convo_list_users.forEach(username => {
-                
                 const memberElement = document.createElement('wc-chat-member');
                 memberElement.setAttribute('username', username.userName);
                 memberElement.setAttribute('profile-pic', `assets/after.png`);
@@ -907,7 +1015,7 @@ export class chat extends HTMLElement {
     handleOffcanvasSearch(event) {
         // need to be fixed ;
         const searchQuery = event.target.value.toLowerCase();
-        console.log("search ::", searchQuery);
+        // console.log("search ::", searchQuery);
 
         const membersContainer = this.shadowRoot.querySelector('#list-offcanvas-body');
         const members = membersContainer.querySelectorAll('wc-chat-member');
@@ -938,7 +1046,7 @@ export class chat extends HTMLElement {
         const username = this.convo_list_users[1];
 		const profilePic = "assets/after.png";
 
-        console.log(username);
+        // console.log(username);
         const cprofileOffcanvasBody = this.shadowRoot.querySelector('.custom-offcanvas-body');
         cprofileOffcanvasBody.innerHTML = ``;
 
@@ -967,21 +1075,50 @@ export class chat extends HTMLElement {
     }
 
 
-    render() {
+    async render() {
         const membersContainer = this.shadowRoot.querySelector('.members-container');
         
         //// for test
         const username = "mohamed";
         const profilePic = "assets/after.png";
-
-        this.convo_list_users.forEach(username => {
-
+        
+        this.convo_list_users.forEach(username => {   
             const memberElement = document.createElement('wc-chat-member');
             memberElement.setAttribute('username', username.userName);
             memberElement.setAttribute('profile-pic', `assets/after.png`);
             memberElement.setAttribute('id', username.id);
             membersContainer.appendChild(memberElement);
-
         });
+    }
+
+    async updateUnreadMemberMessages() {
+        const membersContainer = this.shadowRoot.querySelector('.members-container');
+       
+        await Promise.all(this.convo_list_users.map(async (user) => {
+            if (!user.id || !user.userName) {
+                console.warn(`invalid user data : ${JSON.stringify(user)}`)
+                return
+            }
+            if (!this.databaseMessages.has(user.id)) {
+                await this.fetchData(this.userId, user.id)
+                
+                const member =  membersContainer.querySelector(`wc-chat-member[username="${user.userName}"]`);
+                if (!member) {
+                    console.warn(`member element not found for user : ${JSON.stringify(user)}`)
+                    return 
+                }
+
+                const messages = this.databaseMessages.get(user.id)
+                if (!messages || messages.length == 0) {
+                    console.warn(`no messages data found for user : ${JSON.stringify(user)}`)
+                    return 
+                }
+
+                const unreadMessagesCount = this.getUnreadMessagesCount(user.id)
+                const lastMessage = messages.at(-1)
+                member.displayMessageCounter(unreadMessagesCount, lastMessage)
+                member.updateLastMessage(lastMessage, this.userId)
+            }
+        }))
     }
 }

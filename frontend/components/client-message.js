@@ -36,7 +36,7 @@ messageTemplate.innerHTML = /*html*/ `
             align-items: end;
             gap: 10px;
             background-color: red;
-            background-color: #dcf8c6;
+            background-color: #202c33;
             border-radius: 7.5px;
             max-width: 80%;
             padding: 6px 7px 8px 9px;
@@ -96,6 +96,7 @@ export class clientMessage extends HTMLElement {
         const timeElement = this.shadowRoot.querySelector('#client-msg-time');
         const clientElement = this.shadowRoot.querySelector('.client-msg');
         clientElement.style.display = 'flex';
+        clientElement.style["color"] = "white"
 
         clientElement.textContent = message;
         timeElement.textContent = time;

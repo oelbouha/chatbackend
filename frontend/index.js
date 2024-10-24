@@ -7,6 +7,8 @@ import { card } from './components/user-card.js';
 import { userMessage } from './components/user-message.js';
 import { websocket } from "./components/net.js";
 import { inviteModal } from "./components/inviteModal.js";
+import { userImage } from "./components/user-image.js";
+import { userVideo } from "./components/user-video.js";
 
 
 
@@ -19,7 +21,9 @@ customElements.define("wc-chat-profile", profile);
 customElements.define("wc-card", card);
 customElements.define("wc-client-message", clientMessage);
 customElements.define("wc-user-message", userMessage);
-customElements.define("wc-invite-modal", inviteModal);
+customElements.define("wc-user-image", userImage);
+customElements.define("wc-user-video", userVideo);
+
 
 
 

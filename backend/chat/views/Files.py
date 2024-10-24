@@ -28,7 +28,7 @@ from pathlib import Path
 # TODO don't forget to test >1M files
 
 @method_decorator(csrf_exempt, name="dispatch")
-class UploadFile(LoginRequiredMixin, View):
+class UploadFile(View):
 
     def get(self, request: HttpRequest):
         return HttpResponse("upload file")
@@ -40,6 +40,7 @@ class UploadFile(LoginRequiredMixin, View):
             files_path = self.file_validation(request.FILES)
             return JsonResponse(files_path)
         except ValidationError as e:
+            print(e.message)
             return JsonResponse({
                 "error": e.message
             }, status=400)

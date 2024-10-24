@@ -45,7 +45,7 @@ userMessageTemplate.innerHTML = /*html*/ `
             align-items: end;
             gap: 10px;
             background-color: red;
-            background-color: #005c4b;
+            background-color: #dcf8c6;
             border-radius: 7.5px;
             max-width: 80%;
             padding: 6px 7px 8px 9px;
@@ -63,20 +63,26 @@ userMessageTemplate.innerHTML = /*html*/ `
             border-bottom-right-radius: 2px;
 
         }
-        #user-msg {
-            color: white;
-        }
+
         .message-time {
             align-self: flex-end;
             font-size: 12px;
-            color: #cdd3d7;
+            color: #888;
             min-width: 50px;
         }
+		#image-src {
+			width: 200px;
+			height: 200px;
+		}
 		
 	</style>
 	<div class="message user-message">
         <div class="msg-container" >
-            <div class="user-msg"></div>
+            <div class="user-msg">
+				<video controls id="video-tag" height="250" width="320">
+					<source id="video-src" src="" type="" >
+				</video>
+			</div>
             <div id="msg-status-container" >
                 <div class="message-time"></div>
                 <div class="message-status">
@@ -87,7 +93,7 @@ userMessageTemplate.innerHTML = /*html*/ `
     </div>
 `;
 
-export class userMessage extends HTMLElement {
+export class userVideo extends HTMLElement {
 	constructor() {
 		super();
 		this.attachShadow({mode:'open'});
@@ -102,9 +108,8 @@ export class userMessage extends HTMLElement {
         
         const user = this.getAttribute("user");
         
-        const userMessage = this.shadowRoot.querySelector('.user-msg');
-        userMessage.textContent = message;
-        userMessage.style["color"] = "white"
+        const userMessage = this.shadowRoot.querySelector('#video-src');
+        userMessage.src = message;
         
         const userMessageTime = this.shadowRoot.querySelector('.message-time');
         userMessageTime.textContent = time;
