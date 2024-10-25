@@ -3,7 +3,7 @@ import json
 import mimetypes
 import ffmpeg
 
-from django.http import HttpRequest, JsonResponse, HttpResponse, HttpResponseBadRequest
+from django.http import HttpRequest, JsonResponse, HttpResponse, HttpResponseBadRequest, FileResponse
 from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
@@ -95,8 +95,8 @@ class UploadFile(View):
             raise ValidationError("invalid image")
         
         return {
-            'file': default_storage.url(img_path),
-            'prev_file': default_storage.url(prev_img_path)
+            'f': img_path,
+            'prev_f': prev_img_path
         }
         
 
@@ -135,8 +135,8 @@ class UploadFile(View):
             raise ValidationError("invalid thumbnail")
         
         return {
-            'file': default_storage.url(video_path),
-            'prev_file': default_storage.url(thumbnail_path)
+            'f': video_path,
+            'prev_f': thumbnail_path
         }
 
 
@@ -159,7 +159,7 @@ class UploadFile(View):
         audio_path = default_storage.save(path + f.name, f)
 
         return {
-            'audio': default_storage.url(audio_path)
+            'f': audio_path
         }
 
 
@@ -178,7 +178,7 @@ class UploadFile(View):
         pdf_path = default_storage.save(path + f.name, f)
 
         return {
-            'pdf': default_storage.url(pdf_path)
+            'f': pdf_path
         }
         
 
@@ -194,15 +194,14 @@ class PreviewFile(LoginRequiredMixin, View):
             )
             content_dict = json.loads(message.content)
 
-            if not 'prv_f' in content_dict:
+            if not 'prev_f' in content_dict:
                 return JsonResponse({
                     "error": "the message doesn't have a preview file"
                 }, status=400)
             
-            file_url = default_storage.url(content_dict['prv_f'])
-            return JsonResponse({
-                'file': file_url
-            })
+            return FileResponse(
+                default_storage.open(content_dict['prev_f'])
+            )
 
         except Message.DoesNotExist:
             return JsonResponse({
@@ -228,14 +227,11 @@ class FullFile(LoginRequiredMixin, View):
                 ~Q(type=TypeChoices.TEXT)
 
             )
-
             content_dict = json.loads(message.content)
 
-            file_url = default_storage.url(content_dict['f'])
-            return JsonResponse({
-                'file': file_url
-            })
-
+            return FileResponse(
+                default_storage.open(content_dict['f'])
+            )
         except Message.DoesNotExist:
             return JsonResponse({
                 'error': 'you are Unauthorized to access this file'

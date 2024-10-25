@@ -25,7 +25,6 @@ class Chat(JsonWebsocketConsumer):
                 user=self.scope['user']
             )
             self.accept()
-            self.send(f"I'am: {self.scope['user'].id}") # TODO remove this later
         else:
             self.close()
 
@@ -55,7 +54,6 @@ class Chat(JsonWebsocketConsumer):
 
 
     def chat_message(self, event):
-        print("event: ", event)
         self.send_json(content=event['data'])
 
 
