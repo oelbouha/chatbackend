@@ -10,6 +10,7 @@ from channels.generic.websocket import JsonWebsocketConsumer
 from asgiref.sync import async_to_sync
 
 from chat.models import Message, UserChannel, Room, StatusChoices, TypeChoices
+from chat import redis_instance
 
 
 class Chat(JsonWebsocketConsumer):
@@ -20,18 +21,17 @@ class Chat(JsonWebsocketConsumer):
 
     def connect(self):
         if self.scope['user'].is_authenticated:
-            UserChannel.objects.create(
-                channel_name=self.channel_name,
-                user=self.scope['user']
-            )
+            redis_instance.sadd(f"chat:{self.scope['user'].id}", self.channel_name)
             self.accept()
+            # TODO send to all freinds goes here
+            
         else:
             self.close()
 
 
     def disconnect(self, code):
         if self.scope['user'].is_authenticated:
-            UserChannel.objects.filter(user=self.scope['user']).delete()
+            redis_instance.srem(f"chat:{self.scope['user'].id}", self.channel_name)
         return super().disconnect(code)
 
 
@@ -87,7 +87,6 @@ class Chat(JsonWebsocketConsumer):
             raise ValidationError('client not found')
 
 
- 
     def parse_status_methods(self, json_data, client):
         try:
             msg = json_data['msg']
@@ -105,7 +104,6 @@ class Chat(JsonWebsocketConsumer):
         except Message.DoesNotExist:
             raise ValidationError('message with the given id not found')
         
-
 
     def parse_message_method(self, json_data, client):
         try:
@@ -137,44 +135,26 @@ class Chat(JsonWebsocketConsumer):
 
 
     def handle_message_status_methods(self, method):
-        clt_channs = UserChannel.objects.filter(user=self.STATUS['client'])
-
         self.STATUS['message'].status = StatusChoices.RECEIVED if method == 'recv' else StatusChoices.SEEN
         self.STATUS['message'].save()
 
-        if clt_channs.exists():
-            data = {
-                'm': method,
-                'clt': self.scope['user'].id,
-                'msg': self.STATUS['message'].id,
-            }
-            for chann in clt_channs:
-                async_to_sync(self.channel_layer.send)(chann.channel_name,{
-                    "type": "chat.message",
-                    "data": data
-                })
+        data = {
+            'm': method,
+            'clt': self.scope['user'].id,
+            'msg': self.STATUS['message'].id,
+        }
+        self.send_to_client(self.STATUS['client'], data)
 
 
     def handle_user_actions_methods(self, method):
-        clt_channs = UserChannel.objects.filter(user=self.ACTION['client'])
-
-        if clt_channs.exists():
-            data = {
-                'm': method,
-                'clt': self.scope['user'].id,
-            }
-
-            for chann in clt_channs:
-                async_to_sync(self.channel_layer.send)(chann.channel_name,{
-                    "type": "chat.message",
-                    "data": data
-                })
+        data = {
+            'm': method,
+            'clt': self.scope['user'].id,
+        }
+        self.send_to_client(self.ACTION['client'], data)
 
 
     def handle_messages_method(self):
-        clt_channs = UserChannel.objects.filter(user=self.MESSAGE['client'])
-
-
         message = Message.objects.create(
             sender=self.scope['user'],
             recipient=self.MESSAGE['client'],
@@ -190,23 +170,28 @@ class Chat(JsonWebsocketConsumer):
             'id': self.MESSAGE['id']
         })
 
-        if clt_channs.exists():
-            data = {
-                'm': 'msg',
-                'clt': self.scope['user'].id,
-                'tp': self.MESSAGE['type'],
-                'cnt': self.MESSAGE['content'],
-                'msg': message.id,
-            }
-            for chann in clt_channs:
-                async_to_sync(self.channel_layer.send)(chann.channel_name,{
-                    "type": "chat.message",
-                    "data": data
-                })
+        data = {
+            'm': 'msg',
+            'clt': self.scope['user'].id,
+            'tp': self.MESSAGE['type'],
+            'cnt': self.MESSAGE['content'],
+            'msg': message.id,
+        }
+        self.send_to_client(self.MESSAGE['client'], data)
 
 
+    def send_to_client(self, client, data):
+        channels = redis_instance.smembers(f"chat:{client.id}")
+
+        for channel in channels:
+            async_to_sync(self.channel_layer.send)(channel,{
+                "type": "chat.message",
+                "data": data
+            })
 
 
+    def send_connected_to_friends(self):
+        pass
 '''
 methods = st, sn, recv, typ, rcd, atta, msg, styp, srcd, err
 st --> sent
