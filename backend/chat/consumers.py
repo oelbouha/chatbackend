@@ -278,7 +278,33 @@ msg --> message
 STATUS
 ACTION
 MESSAGE
-         
+
+
+
+notifications:
+    - game invitation
+    - tournament
+    - friend request
+    - connected user
+    
+keys:
+    method: notif
+    source: game - user - chat - tourn
+
+
+
+    tournament:
+        match infos -> id, opponent, tournament
+    game invite:
+        sender user id
+    friend request:
+        sender user id
+    connected user:
+        online user id
+    
+
+
+
 '''
 
 # TODO change message status with choices
