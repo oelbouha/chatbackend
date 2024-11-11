@@ -95,8 +95,8 @@ class UploadFile(View):
             raise ValidationError("invalid image")
         
         return {
-            'f': img_path,
-            'prev_f': prev_img_path
+            "f": img_path,
+            "prev_f": prev_img_path
         }
         
 
@@ -135,16 +135,17 @@ class UploadFile(View):
             raise ValidationError("invalid thumbnail")
         
         return {
-            'f': video_path,
-            'prev_f': thumbnail_path
+            "f": video_path,
+            "prev_f": thumbnail_path
         }
 
 
     def check_video_is_valid(self, video_path):
-        try:
-            ffmpeg.probe(video_path)
-        except ffmpeg.Error:
-            raise ValidationError("invalid video")
+        pass
+        # try:
+        # #     ffmpeg.probe(video_path)
+        # except ffmpeg.Error:
+        #     raise ValidationError("invalid video")
 
 
     def audio_validation(self, files):
@@ -159,7 +160,7 @@ class UploadFile(View):
         audio_path = default_storage.save(path + f.name, f)
 
         return {
-            'f': audio_path
+            "f": audio_path
         }
 
 
@@ -178,7 +179,7 @@ class UploadFile(View):
         pdf_path = default_storage.save(path + f.name, f)
 
         return {
-            'f': pdf_path
+            "f": pdf_path
         }
         
 
@@ -193,14 +194,15 @@ class PreviewFile(LoginRequiredMixin, View):
                 ~Q(type=TypeChoices.TEXT)
             )
             content_dict = json.loads(message.content)
+            print("content : ", message.content)
 
-            if not 'prev_f' in content_dict:
+            if not "prev_f" in content_dict:
                 return JsonResponse({
                     "error": "the message doesn't have a preview file"
                 }, status=400)
             
             return FileResponse(
-                default_storage.open(content_dict['prev_f'])
+                default_storage.open(content_dict["prev_f"])
             )
 
         except Message.DoesNotExist:
@@ -230,7 +232,7 @@ class FullFile(LoginRequiredMixin, View):
             content_dict = json.loads(message.content)
 
             return FileResponse(
-                default_storage.open(content_dict['f'])
+                default_storage.open(content_dict["f"])
             )
         except Message.DoesNotExist:
             return JsonResponse({

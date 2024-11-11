@@ -54,6 +54,7 @@ class Chat(JsonWebsocketConsumer):
 
 
     def chat_message(self, event):
+        print("event: ", event)
         self.send_json(content=event['data'])
 
 
@@ -107,9 +108,10 @@ class Chat(JsonWebsocketConsumer):
 
     def parse_message_method(self, json_data, client):
         try:
+            print("json_data: ", json_data)
             type = json_data['tp']
             content = json_data['cnt']
-            id = json_data['id']
+            id = json_data['identifier']
             room = Room.objects.get(
                 Q(user1=client) | Q(user1=self.scope['user']),
                 Q(user2=self.scope['user']) | Q(user2=client),
@@ -167,7 +169,7 @@ class Chat(JsonWebsocketConsumer):
             'm': 'st',
             'clt': self.MESSAGE['client'].id,
             'msg': message.id,
-            'id': self.MESSAGE['id']
+            'identifier': self.MESSAGE['id']
         })
 
         data = {
